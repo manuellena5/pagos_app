@@ -88,6 +88,23 @@ function getPlayersData() {
     for (let i = 1; i < values.length; i++) {
       const nombre = (values[i][0] || '').toString().trim();
       if (!nombre) continue;
+
+      // Fecha_Cobro_Mensual (col 11): día del mes (1-31)
+      // Fall back to old Fecha_Cobro (col 8) for backwards compatibility
+      let diaCobro = '';
+      const rawDiaCobro = values[i][11] !== undefined && values[i][11] !== '' ? values[i][11] : values[i][8];
+      if (rawDiaCobro !== undefined && rawDiaCobro !== '') {
+        diaCobro = rawDiaCobro.toString().trim();
+      }
+
+      // Fecha_Ultimo_Pago (col 12): YYYY-MM-DD
+      let fechaUltimoPago = '';
+      if (values[i][12] !== undefined && values[i][12] !== '') {
+        fechaUltimoPago = values[i][12] instanceof Date
+          ? values[i][12].toISOString().split('T')[0]
+          : values[i][12].toString().trim();
+      }
+
       players.push({
         nombre: nombre,
         posicion: (values[i][1] || 'Jugador').toString().trim(),
@@ -101,7 +118,9 @@ function getPlayersData() {
           ? values[i][8].toISOString().split('T')[0]
           : values[i][8].toString().trim()) : '',
         montoGol: parseFloat(values[i][9]) || 0,
-        montoValla: parseFloat(values[i][10]) || 0
+        montoValla: parseFloat(values[i][10]) || 0,
+        diaCobroMensual: diaCobro,
+        fechaUltimoPago: fechaUltimoPago
       });
     }
 
@@ -309,7 +328,7 @@ function saveRegistroData(records, partidoId, partidoRival, overwrite) {
 }
 
 /**
- * Save a payment record
+ * Save a payment record AND update Fecha_Ultimo_Pago in Jugadores sheet
  */
 function savePagoData(record) {
   try {
@@ -330,12 +349,42 @@ function savePagoData(record) {
       record.montoNeto
     ]);
 
+    // Update Fecha_Ultimo_Pago in Jugadores_Pagos sheet (column 13, index 12)
+    const fechaPago = (record.timestamp || '').split('T')[0] || new Date().toISOString().split('T')[0];
+    updateFechaUltimoPago(record.jugador, fechaPago);
+
     return {
       status: 'success',
       message: `Pago registrado para ${record.jugador}`
     };
   } catch (error) {
     return { status: 'error', message: error.toString() };
+  }
+}
+
+/**
+ * Update the Fecha_Ultimo_Pago column for a specific player
+ * Column M (index 12) in Jugadores_Pagos sheet
+ */
+function updateFechaUltimoPago(jugadorNombre, fecha) {
+  try {
+    const spreadsheet = SpreadsheetApp.openById(SHEET_ID);
+    const sheet = spreadsheet.getSheetByName(JUGADORES_SHEET);
+    if (!sheet) return;
+
+    const values = sheet.getDataRange().getValues();
+    const nameLower = jugadorNombre.toLowerCase().trim();
+
+    for (let i = 1; i < values.length; i++) {
+      const cellName = (values[i][0] || '').toString().trim().toLowerCase();
+      if (cellName === nameLower) {
+        // Column M = index 12 (1-based column 13)
+        sheet.getRange(i + 1, 13).setValue(fecha);
+        return;
+      }
+    }
+  } catch (error) {
+    Logger.log('Error updating Fecha_Ultimo_Pago: ' + error.toString());
   }
 }
 
@@ -356,7 +405,8 @@ function initializeSheets() {
         'Nombre', 'Posicion', 'Tipo_Contratacion',
         'Monto_Titular', 'Monto_Suplente', 'Monto_Suplente_Min',
         'Monto_Quincena', 'Monto_Mensual', 'Fecha_Cobro',
-        'Monto_Gol', 'Monto_Valla'
+        'Monto_Gol', 'Monto_Valla',
+        'Fecha_Cobro_Mensual', 'Fecha_Ultimo_Pago'
       ]);
     }
 

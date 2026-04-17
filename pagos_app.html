@@ -125,6 +125,17 @@ body{display:flex;flex-direction:column;padding-bottom:68px}
 
 .partido-check{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--gray-light)}
 .partido-check:last-child{border:none}
+
+/* Indicadores de pago */
+.pago-indicator{padding:10px 14px;border-radius:var(--radius);font-size:.85rem;font-weight:600;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.pago-ind-pending{background:var(--yellow-bg);color:var(--yellow-text);border:1px solid #fcd34d}
+.pago-ind-due{background:var(--red-bg);color:var(--red-text);border:1px solid #fca5a5}
+.pago-ind-ready{background:var(--green-bg);color:var(--green-text);border:1px solid #6ee7b7}
+.pago-ind-paid{background:var(--gray-light);color:var(--gray);border:1px solid var(--border)}
+.pago-ind-info{background:var(--blue-bg);color:var(--blue-text);border:1px solid #93c5fd}
+
+.btn-suggest{width:100%;padding:10px;border:2px dashed var(--primary);border-radius:var(--radius);background:#fff;color:var(--primary);font-weight:600;font-size:.9rem;cursor:pointer;margin-bottom:12px;transition:all .15s}
+.btn-suggest:active{background:var(--primary);color:#fff}
 .partido-check input[type="checkbox"]{width:20px;height:20px;accent-color:var(--primary)}
 .partido-check .pc-info{flex:1}
 .partido-check .pc-rival{font-weight:600;font-size:.9rem}
@@ -210,6 +221,8 @@ body{display:flex;flex-direction:column;padding-bottom:68px}
     <div id="pagos-detail-view" class="pago-detail">
       <button class="back-btn" onclick="backToPagosList()">← Volver</button>
       <div id="pago-player-header"></div>
+      <div id="pago-status-indicator"></div>
+      <button id="btn-suggest-pago" class="btn-suggest" onclick="suggestPago()" style="display:none">⚡ Sugerir pago automáticamente</button>
       <div class="card" style="margin-bottom:12px">
         <div class="card-hdr">Seleccionar partidos a pagar</div>
         <div id="pago-partidos-list"></div>
@@ -683,6 +696,7 @@ function openPagoDetail(playerIdx) {
     montoInfo = `$${fmt(p.montoQuincena)} cada 2 partidos`;
   } else if (p.tipoContratacion === 'Mensual') {
     montoInfo = `$${fmt(p.montoMensual)} mensual`;
+    if (p.diaCobroMensual) montoInfo += ` (cobra día ${p.diaCobroMensual})`;
   }
   if (p.montoGol > 0) montoInfo += ` | Gol: $${fmt(p.montoGol)}`;
   if (p.posicion === 'Arquero' && p.montoValla > 0) montoInfo += ` | Valla: $${fmt(p.montoValla)}`;
@@ -696,10 +710,173 @@ function openPagoDetail(playerIdx) {
     </div>
   `;
 
+  // Status indicator and suggest button
+  renderPagoStatusIndicator();
+
   // Render partidos with checkboxes
   renderPagoPartidos();
   renderPagoCalc();
   renderDiscounts();
+}
+
+function renderPagoStatusIndicator() {
+  const c = document.getElementById('pago-status-indicator');
+  const btnSuggest = document.getElementById('btn-suggest-pago');
+  const p = currentPagoPlayer;
+  c.innerHTML = '';
+
+  const tipo = p.tipoContratacion;
+
+  if (tipo === 'Por partido' || tipo === 'N/A') {
+    btnSuggest.style.display = 'none';
+    return;
+  }
+
+  const pName = p.nombre.toUpperCase();
+  const today = new Date();
+  const todayStr = today.toISOString().split('T')[0];
+  const ultimoPago = p.fechaUltimoPago || '';
+
+  let indicatorHtml = '';
+  let showSuggest = false;
+
+  if (tipo === 'Mensual') {
+    const dia = parseInt(p.diaCobroMensual);
+    const mesActual = today.toISOString().substring(0, 7); // YYYY-MM
+    const pagadoEsteMes = ultimoPago && ultimoPago.substring(0, 7) === mesActual;
+
+    if (pagadoEsteMes) {
+      indicatorHtml = `<div class="pago-indicator pago-ind-paid">💾 Ya pagado este mes el ${formatDate(ultimoPago)}</div>`;
+    } else if (!dia || isNaN(dia)) {
+      indicatorHtml = `<div class="pago-indicator pago-ind-info">ℹ️ Sin fecha de cobro configurada — seleccioná manualmente los partidos del mes</div>`;
+      showSuggest = true;
+    } else {
+      const diaHoy = today.getDate();
+      if (diaHoy >= dia) {
+        indicatorHtml = `<div class="pago-indicator pago-ind-due">🔴 Vencido — día de cobro: ${dia} de cada mes</div>`;
+      } else {
+        const faltan = dia - diaHoy;
+        indicatorHtml = `<div class="pago-indicator pago-ind-pending">⏳ Próximo cobro: día ${dia} (en ${faltan} día${faltan !== 1 ? 's' : ''})</div>`;
+      }
+      showSuggest = true;
+    }
+  }
+
+  if (tipo === 'Quincena') {
+    // Count partidos played since last payment (using Registro_Pagos timestamps)
+    const partidosJugados = countPartidosSinceLastPago(pName, ultimoPago);
+    const listos = Math.floor(partidosJugados / 2);
+
+    if (partidosJugados === 0 && !ultimoPago) {
+      indicatorHtml = `<div class="pago-indicator pago-ind-info">ℹ️ Primer pago — seleccioná manualmente los 2 partidos</div>`;
+      showSuggest = true;
+    } else if (partidosJugados === 0) {
+      indicatorHtml = `<div class="pago-indicator pago-ind-paid">💾 Último pago: ${formatDate(ultimoPago)} — sin partidos nuevos</div>`;
+    } else if (listos >= 1) {
+      indicatorHtml = `<div class="pago-indicator pago-ind-ready">✅ Listo para pagar ${listos} quincena${listos > 1 ? 's' : ''} (${partidosJugados} partidos desde último pago)</div>`;
+      showSuggest = true;
+    } else {
+      indicatorHtml = `<div class="pago-indicator pago-ind-pending">📊 ${partidosJugados}/2 partidos para próxima quincena${ultimoPago ? ' — último pago: ' + formatDate(ultimoPago) : ''}</div>`;
+      showSuggest = true;
+    }
+  }
+
+  c.innerHTML = indicatorHtml;
+  btnSuggest.style.display = showSuggest ? 'block' : 'none';
+}
+
+function countPartidosSinceLastPago(pNameUpper, ultimoPago) {
+  // Count partidos registered AFTER the last payment date
+  // Uses the Registro_Pagos timestamp as a proxy for match date
+  let count = 0;
+  const registeredPartidos = partidos.filter(pt => registeredIds.has(pt.id));
+
+  registeredPartidos.forEach(pt => {
+    const records = cachedRegistro[pt.id] || [];
+    const playerRec = records.find(r => r.jugador.toUpperCase() === pNameUpper);
+    if (!playerRec || playerRec.estado === 'N/C') return;
+
+    // If no last payment, count all
+    if (!ultimoPago) { count++; return; }
+
+    // Compare registration timestamp with last payment date
+    const ts = (playerRec.timestamp || '').split('T')[0];
+    if (ts && ts > ultimoPago) count++;
+  });
+
+  return count;
+}
+
+function suggestPago() {
+  const p = currentPagoPlayer;
+  if (!p) return;
+  const pName = p.nombre.toUpperCase();
+  const ultimoPago = p.fechaUltimoPago || '';
+  const today = new Date();
+  const mesActual = today.toISOString().substring(0, 7);
+
+  const registeredPartidos = partidos.filter(pt => registeredIds.has(pt.id));
+
+  // First, clear all checkboxes
+  registeredPartidos.forEach(pt => {
+    const chk = document.getElementById('pago-check-' + pt.id);
+    if (chk && !chk.disabled) chk.checked = false;
+  });
+
+  // Collect candidates (partidos played by this player after last payment)
+  const candidates = [];
+  registeredPartidos.forEach(pt => {
+    const records = cachedRegistro[pt.id] || [];
+    const playerRec = records.find(r => r.jugador.toUpperCase() === pName);
+    if (!playerRec || playerRec.estado === 'N/C') return;
+
+    const ts = (playerRec.timestamp || '').split('T')[0];
+    const afterLastPago = !ultimoPago || (ts && ts > ultimoPago);
+    if (!afterLastPago) return;
+
+    candidates.push({ partido: pt, timestamp: ts });
+  });
+
+  // Sort by timestamp ascending
+  candidates.sort((a, b) => (a.timestamp || '').localeCompare(b.timestamp || ''));
+
+  let toSelect = [];
+
+  if (p.tipoContratacion === 'Mensual') {
+    // Select all partidos since last payment (preferably this month)
+    toSelect = candidates.filter(c => !c.timestamp || c.timestamp.substring(0, 7) === mesActual);
+    if (!toSelect.length) toSelect = candidates; // fallback: all since last payment
+  } else if (p.tipoContratacion === 'Quincena') {
+    // Select pairs: take first (or last?) 2N partidos
+    const pares = Math.floor(candidates.length / 2);
+    toSelect = candidates.slice(0, pares * 2);
+  } else {
+    // Por partido: select all unpaid (all since last payment)
+    toSelect = candidates;
+  }
+
+  toSelect.forEach(c => {
+    const chk = document.getElementById('pago-check-' + c.partido.id);
+    if (chk) chk.checked = true;
+  });
+
+  renderPagoCalc();
+
+  if (toSelect.length > 0) {
+    toast('✓ ' + toSelect.length + ' partido' + (toSelect.length > 1 ? 's' : '') + ' seleccionado' + (toSelect.length > 1 ? 's' : ''), 'success');
+  } else {
+    toast('No hay partidos para sugerir', 'error');
+  }
+}
+
+function formatDate(isoDate) {
+  if (!isoDate) return '';
+  try {
+    const d = new Date(isoDate + 'T12:00:00');
+    const dia = d.getDate().toString().padStart(2, '0');
+    const mes = (d.getMonth() + 1).toString().padStart(2, '0');
+    return `${dia}/${mes}/${d.getFullYear()}`;
+  } catch (e) { return isoDate; }
 }
 
 function renderPagoPartidos() {
@@ -1001,6 +1178,15 @@ async function savePago() {
         body: JSON.stringify({ action: 'savePago', data: record })
       });
     }
+
+    // Update local fechaUltimoPago so the indicator reflects the new state immediately
+    const fechaPago = record.timestamp.split('T')[0];
+    const playerIdx = players.findIndex(pl => pl.nombre === currentPagoPlayer.nombre);
+    if (playerIdx >= 0) {
+      players[playerIdx].fechaUltimoPago = fechaPago;
+      localStorage.setItem('pagos_players', JSON.stringify(players));
+    }
+
     toast('✓ Pago registrado — ' + currentPagoPlayer.nombre, 'success');
     backToPagosList();
   } catch (e) {
