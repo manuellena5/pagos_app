@@ -1,0 +1,1218 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#1a3a52">
+<link rel="manifest" href="manifest.json">
+<title>Pagos Club</title>
+<style>
+:root {
+  --primary:#1a3a52; --primary-light:#2d5a7b; --primary-dark:#0f2536;
+  --green:#10b981; --green-bg:#d1fae5; --green-text:#065f46;
+  --blue:#3b82f6; --blue-bg:#dbeafe; --blue-text:#1e40af;
+  --yellow:#f59e0b; --yellow-bg:#fef3c7; --yellow-text:#92400e;
+  --red:#ef4444; --red-bg:#fee2e2; --red-text:#991b1b;
+  --orange:#f97316; --orange-bg:#ffedd5; --orange-text:#9a3412;
+  --purple:#8b5cf6; --purple-bg:#ede9fe; --purple-text:#5b21b6;
+  --gray:#6b7280; --gray-light:#f3f4f6; --border:#e5e7eb;
+  --radius:10px; --shadow:0 1px 3px rgba(0,0,0,0.08);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f9fafb;color:#1f2937;-webkit-tap-highlight-color:transparent}
+body{display:flex;flex-direction:column;padding-bottom:68px}
+
+.header{background:linear-gradient(135deg,var(--primary),var(--primary-light));color:#fff;padding:16px;position:sticky;top:0;z-index:50;box-shadow:0 2px 8px rgba(0,0,0,0.15)}
+.header h1{font-size:1.4rem;font-weight:700}
+.header small{opacity:.8;font-size:.8rem}
+
+.main{flex:1;padding:12px;max-width:600px;width:100%;margin:0 auto;overflow-y:auto;-webkit-overflow-scrolling:touch}
+
+.screen{display:none} .screen.active{display:block;animation:fadeIn .25s ease}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+/* Nav */
+.nav{position:fixed;bottom:0;left:0;right:0;height:64px;background:#fff;border-top:1px solid var(--border);display:flex;z-index:50;box-shadow:0 -1px 6px rgba(0,0,0,0.06)}
+.nav button{flex:1;border:none;background:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-size:.7rem;font-weight:600;color:var(--gray);cursor:pointer;min-height:48px;transition:color .2s}
+.nav button.active{color:var(--primary)}
+.nav button .ico{font-size:1.4rem}
+
+/* Common */
+.btn{width:100%;padding:14px;border:none;border-radius:var(--radius);font-size:1rem;font-weight:700;cursor:pointer;margin-top:12px;min-height:48px;transition:all .15s}
+.btn-primary{background:var(--primary);color:#fff}
+.btn-primary:active{background:var(--primary-dark);transform:scale(.98)}
+.btn-primary:disabled{background:var(--gray);opacity:.5}
+.btn-sm{padding:8px 16px;font-size:.85rem;border:none;border-radius:8px;cursor:pointer;font-weight:600;min-height:40px}
+.btn-sec{background:var(--border);color:#1f2937}
+
+.card{background:#fff;border-radius:var(--radius);box-shadow:var(--shadow);margin-bottom:12px;overflow:hidden}
+.card-hdr{padding:12px 14px;font-weight:700;font-size:.95rem;border-bottom:1px solid var(--gray-light);display:flex;justify-content:space-between;align-items:center}
+
+.toast{position:fixed;top:80px;left:50%;transform:translateX(-50%);padding:12px 24px;border-radius:var(--radius);color:#fff;font-weight:600;font-size:.9rem;z-index:200;animation:toastIn .3s ease;box-shadow:0 4px 12px rgba(0,0,0,.2)}
+.toast.success{background:var(--green)}
+.toast.error{background:var(--red)}
+@keyframes toastIn{from{opacity:0;transform:translateX(-50%) translateY(-10px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+
+.loading{text-align:center;padding:40px;color:var(--gray)}
+.loading .sp{width:28px;height:28px;border:3px solid var(--border);border-top-color:var(--primary);border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 10px}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.badge{font-size:.75rem;padding:3px 10px;border-radius:10px;font-weight:600}
+.badge-green{background:var(--green-bg);color:var(--green-text)}
+.badge-blue{background:var(--blue-bg);color:var(--blue-text)}
+.badge-yellow{background:var(--yellow-bg);color:var(--yellow-text)}
+.badge-red{background:var(--red-bg);color:var(--red-text)}
+.badge-orange{background:var(--orange-bg);color:var(--orange-text)}
+.badge-purple{background:var(--purple-bg);color:var(--purple-text)}
+
+/* ===== REGISTRO ===== */
+.select-input{width:100%;padding:12px;border:2px solid var(--border);border-radius:var(--radius);font-size:1rem;font-family:inherit;background:#fff;margin-bottom:12px;appearance:auto}
+.select-input:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px rgba(26,58,82,.12)}
+
+.player-card{background:#fff;border:2px solid var(--border);border-radius:var(--radius);padding:12px;margin-bottom:8px;box-shadow:var(--shadow);transition:border-color .2s}
+.player-card.status-T{border-left:4px solid var(--green)}
+.player-card.status-SM{border-left:4px solid var(--blue)}
+.player-card.status-S{border-left:4px solid var(--yellow)}
+.player-card.status-NC{border-left:4px solid var(--red)}
+.player-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.player-card .name{flex:1;font-weight:600;font-size:.95rem;min-width:100px}
+.player-card .pos-badge{font-size:.65rem;padding:2px 6px;border-radius:4px;font-weight:700}
+.pos-jugador{background:var(--blue-bg);color:var(--blue-text)}
+.pos-arquero{background:var(--orange-bg);color:var(--orange-text)}
+
+.status-btns{display:flex;gap:3px}
+.status-btns button{padding:6px 8px;border:2px solid var(--border);border-radius:8px;font-weight:700;font-size:.7rem;cursor:pointer;background:#fff;color:var(--gray);transition:all .15s;white-space:nowrap;min-height:36px}
+.status-btns button.sel-T{background:var(--green);color:#fff;border-color:var(--green)}
+.status-btns button.sel-SM{background:var(--blue);color:#fff;border-color:var(--blue)}
+.status-btns button.sel-S{background:var(--yellow);color:#fff;border-color:var(--yellow)}
+.status-btns button.sel-NC{background:var(--red);color:#fff;border-color:var(--red)}
+
+.extras-row{display:flex;gap:12px;margin-top:8px;align-items:center;flex-wrap:wrap}
+.goal-ctrl{display:flex;align-items:center;gap:6px;font-size:.85rem;font-weight:600}
+.goal-ctrl button{width:30px;height:30px;border:2px solid var(--border);border-radius:6px;font-size:1rem;font-weight:700;cursor:pointer;background:#fff;color:var(--primary);display:flex;align-items:center;justify-content:center}
+.goal-ctrl button:active{background:var(--primary);color:#fff}
+.goal-ctrl .goal-num{min-width:20px;text-align:center;font-size:1.1rem}
+.valla-toggle{display:flex;align-items:center;gap:6px;font-size:.85rem;font-weight:600}
+.valla-toggle button{padding:4px 10px;border:2px solid var(--border);border-radius:6px;font-size:.8rem;font-weight:700;cursor:pointer;background:#fff;color:var(--gray);transition:all .15s}
+.valla-toggle button.valla-si{background:var(--green);color:#fff;border-color:var(--green)}
+
+.form-placeholder{text-align:center;padding:40px 20px;color:var(--gray)}
+.form-placeholder .ico-big{font-size:3rem;margin-bottom:12px}
+.form-placeholder p{font-size:.95rem;font-weight:500}
+
+.date-banner{padding:10px 14px;border-radius:var(--radius);font-size:.85rem;font-weight:600;margin-bottom:10px;display:none;align-items:center;gap:8px}
+.date-banner.loaded{display:flex;background:var(--green-bg);color:var(--green-text);border:1px solid #6ee7b7}
+.date-banner.new{display:flex;background:var(--gray-light);color:var(--gray);border:1px solid var(--border)}
+
+.ref-box{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px;background:#fff;border-radius:8px;padding:10px 14px;box-shadow:var(--shadow)}
+.ref-box .ref-label{font-size:.75rem;color:var(--gray);font-weight:600;width:100%;margin-bottom:2px}
+.ref-item{display:inline-flex;align-items:center;gap:5px;font-size:.78rem;color:#1f2937}
+.ref-dot{display:inline-flex;min-width:32px;height:26px;border-radius:5px;align-items:center;justify-content:center;font-size:.65rem;font-weight:700;color:#fff;padding:0 4px}
+
+/* ===== PAGOS ===== */
+.player-list-item{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:#fff;border:1px solid var(--border);border-radius:var(--radius);margin-bottom:6px;cursor:pointer;transition:all .15s}
+.player-list-item:active{background:var(--gray-light)}
+.player-list-item .pl-info{flex:1}
+.player-list-item .pl-name{font-weight:600;font-size:.95rem}
+.player-list-item .pl-meta{font-size:.75rem;color:var(--gray);margin-top:2px}
+.player-list-item .pl-arrow{font-size:1.2rem;color:var(--gray)}
+
+.pago-detail{display:none}
+.pago-detail.active{display:block}
+.back-btn{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;background:var(--gray-light);border:none;border-radius:var(--radius);font-size:.9rem;font-weight:600;cursor:pointer;margin-bottom:12px;color:var(--primary)}
+
+.partido-check{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--gray-light)}
+.partido-check:last-child{border:none}
+.partido-check input[type="checkbox"]{width:20px;height:20px;accent-color:var(--primary)}
+.partido-check .pc-info{flex:1}
+.partido-check .pc-rival{font-weight:600;font-size:.9rem}
+.partido-check .pc-estado{font-size:.75rem;color:var(--gray);margin-top:2px}
+.partido-check .pc-monto{font-weight:700;font-size:.9rem;color:var(--green-text)}
+
+.calc-row{display:flex;justify-content:space-between;padding:8px 14px;font-size:.9rem}
+.calc-row.total{font-weight:700;font-size:1rem;border-top:2px solid var(--primary);padding-top:12px;margin-top:4px}
+.calc-row .label{color:var(--gray)}
+.calc-row .value{font-weight:600}
+.calc-row.total .value{color:var(--primary);font-size:1.1rem}
+
+.discount-item{display:flex;gap:8px;align-items:center;padding:8px 14px;border-bottom:1px solid var(--gray-light)}
+.discount-item input[type="text"]{flex:1;padding:8px;border:2px solid var(--border);border-radius:6px;font-size:.85rem;font-family:inherit}
+.discount-item input[type="number"]{width:100px;padding:8px;border:2px solid var(--border);border-radius:6px;font-size:.85rem;font-family:inherit;text-align:right}
+.discount-item .disc-del{width:30px;height:30px;border:none;background:var(--red-bg);color:var(--red);border-radius:6px;font-size:1rem;cursor:pointer;display:flex;align-items:center;justify-content:center}
+
+/* ===== RESUMEN ===== */
+.resumen-table{width:100%;border-collapse:collapse;font-size:.85rem}
+.resumen-table th{background:var(--primary);color:#fff;padding:10px 8px;font-size:.75rem;text-align:left}
+.resumen-table td{padding:8px;border-bottom:1px solid var(--gray-light)}
+.resumen-table .rt-name{font-weight:600}
+.resumen-table .rt-amount{text-align:right;font-weight:600}
+.resumen-total{background:var(--primary);color:#fff;padding:14px;border-radius:var(--radius);text-align:center;font-size:1.2rem;font-weight:700;margin-top:12px}
+
+/* ===== CONFIG ===== */
+.config-box{background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:14px;margin-bottom:12px}
+.config-box label{display:block;font-weight:600;font-size:.85rem;margin-bottom:6px}
+.config-box input{width:100%;padding:10px;border:2px solid var(--border);border-radius:8px;font-size:.85rem;margin-bottom:8px;font-family:inherit}
+.config-box .hint{font-size:.75rem;color:var(--gray)}
+
+.mgmt-item{display:flex;align-items:center;padding:10px 14px;background:#fff;border:1px solid var(--border);border-radius:var(--radius);margin-bottom:4px;gap:10px;flex-wrap:wrap}
+.mgmt-item .mi-name{font-weight:600;font-size:.9rem;flex:1;min-width:120px}
+.mgmt-item .mi-detail{font-size:.73rem;color:var(--gray);display:flex;gap:6px;flex-wrap:wrap}
+
+@media(max-width:400px){
+  .status-btns button{padding:5px 6px;font-size:.65rem}
+  .extras-row{gap:8px}
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1 id="hdr-title">Registro</h1>
+  <small id="hdr-sub">Registrar partido</small>
+</div>
+
+<div class="main">
+  <!-- ===== REGISTRO ===== -->
+  <div id="scr-registro" class="screen active">
+    <select id="partido-sel" class="select-input" onchange="onPartidoChange(this.value)">
+      <option value="">Seleccioná un partido...</option>
+    </select>
+    <div id="registro-placeholder" class="form-placeholder">
+      <div class="ico-big">⚽</div>
+      <p>Seleccioná un partido<br>para registrar los datos</p>
+    </div>
+    <div id="registro-checking" style="display:none;align-items:center;gap:10px;padding:14px;background:#fff;border-radius:var(--radius);margin-bottom:10px;box-shadow:var(--shadow)">
+      <div style="width:20px;height:20px;border:3px solid var(--border);border-top-color:var(--primary);border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0"></div>
+      <span class="check-msg" style="font-size:.9rem;color:var(--gray);font-weight:500"></span>
+    </div>
+    <div id="registro-banner" class="date-banner"></div>
+    <div id="registro-body" style="display:none">
+      <div class="ref-box">
+        <span class="ref-label">Referencias:</span>
+        <span class="ref-item"><span class="ref-dot" style="background:var(--green)">T</span> Titular</span>
+        <span class="ref-item"><span class="ref-dot" style="background:var(--blue)">S c/m</span> Supl. c/min</span>
+        <span class="ref-item"><span class="ref-dot" style="background:var(--yellow)">S</span> Suplente</span>
+        <span class="ref-item"><span class="ref-dot" style="background:var(--red)">N/C</span> No Conv.</span>
+      </div>
+      <div id="registro-list"></div>
+      <button class="btn btn-primary" id="btn-save-reg" onclick="saveRegistro()">Guardar Registro</button>
+      <button class="btn" style="background:var(--gray-light);color:var(--gray);margin-top:6px" onclick="resetRegistro()">Cambiar partido</button>
+    </div>
+  </div>
+
+  <!-- ===== PAGOS ===== -->
+  <div id="scr-pagos" class="screen">
+    <div id="pagos-list-view">
+      <div id="pagos-player-list"></div>
+    </div>
+    <div id="pagos-detail-view" class="pago-detail">
+      <button class="back-btn" onclick="backToPagosList()">← Volver</button>
+      <div id="pago-player-header"></div>
+      <div class="card" style="margin-bottom:12px">
+        <div class="card-hdr">Seleccionar partidos a pagar</div>
+        <div id="pago-partidos-list"></div>
+      </div>
+      <div class="card" style="margin-bottom:12px">
+        <div class="card-hdr">Detalle del pago</div>
+        <div id="pago-calc"></div>
+      </div>
+      <div class="card" style="margin-bottom:12px">
+        <div class="card-hdr">Descuentos <button class="btn-sm" style="background:var(--primary);color:#fff;margin-left:auto" onclick="addDiscount()">+ Agregar</button></div>
+        <div id="pago-discounts"></div>
+      </div>
+      <div class="card">
+        <div class="card-hdr">Total</div>
+        <div id="pago-total"></div>
+      </div>
+      <button class="btn btn-primary" onclick="savePago()">Confirmar Pago</button>
+    </div>
+  </div>
+
+  <!-- ===== RESUMEN ===== -->
+  <div id="scr-resumen" class="screen">
+    <div class="card" style="margin-bottom:12px">
+      <div class="card-hdr">Seleccionar partidos para el resumen</div>
+      <div id="resumen-partidos-list"></div>
+    </div>
+    <button class="btn btn-primary" style="margin-bottom:12px;margin-top:0" onclick="calcResumen()">Calcular Resumen</button>
+    <div id="resumen-output"></div>
+  </div>
+
+  <!-- ===== CONFIG ===== -->
+  <div id="scr-config" class="screen">
+    <div class="card" style="margin-bottom:12px">
+      <div class="card-hdr">⚙️ Apps Script</div>
+      <div style="padding:14px">
+        <label style="display:block;font-weight:600;font-size:.85rem;margin-bottom:6px">URL del Web App</label>
+        <input type="text" id="cfg-url" placeholder="https://script.google.com/macros/s/..." style="width:100%;padding:10px;border:2px solid var(--border);border-radius:8px;font-size:.85rem;margin-bottom:8px;font-family:inherit">
+        <p style="font-size:.75rem;color:var(--gray);margin-bottom:10px">Pegá la URL del Web App desplegado en Google Apps Script.</p>
+        <button class="btn btn-primary" onclick="saveCfg()">Guardar URL</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-hdr">👥 Jugadores (desde Google Sheet)</div>
+      <div id="config-players-list" style="padding:8px"></div>
+    </div>
+  </div>
+</div>
+
+<div class="nav">
+  <button class="active" onclick="go('registro',this)"><span class="ico">⚽</span>Registro</button>
+  <button onclick="go('pagos',this)"><span class="ico">💰</span>Pagos</button>
+  <button onclick="go('resumen',this)"><span class="ico">📊</span>Resumen</button>
+  <button onclick="go('config',this)"><span class="ico">⚙️</span>Config</button>
+</div>
+
+<script>
+// ======================== STATE ========================
+let players = JSON.parse(localStorage.getItem('pagos_players') || 'null') || [];
+let partidos = JSON.parse(localStorage.getItem('pagos_partidos') || 'null') || [];
+let scriptUrl = localStorage.getItem('pagos_script_url') || '';
+let allRegistro = []; // all registration data (fetched)
+let cachedRegistro = {}; // {partidoId: records[]}
+let registeredIds = new Set(); // partido IDs with data
+
+// Current pago state
+let currentPagoPlayer = null;
+let currentPagoDiscounts = [];
+
+// ======================== INIT ========================
+document.addEventListener('DOMContentLoaded', async () => {
+  document.getElementById('cfg-url').value = scriptUrl;
+
+  if (scriptUrl) {
+    try {
+      // Load players from Sheets
+      const rp = await fetch(scriptUrl + '?action=getPlayers');
+      const jp = await rp.json();
+      if (jp.status === 'success' && jp.players && jp.players.length > 0) {
+        players = jp.players;
+        localStorage.setItem('pagos_players', JSON.stringify(players));
+      }
+    } catch (e) {
+      if (!players.length) toast('Sin conexión — usando caché', 'error');
+    }
+
+    try {
+      // Load partidos from Sheets
+      const rm = await fetch(scriptUrl + '?action=getPartidos');
+      const jm = await rm.json();
+      if (jm.status === 'success' && jm.partidos && jm.partidos.length > 0) {
+        partidos = jm.partidos;
+        localStorage.setItem('pagos_partidos', JSON.stringify(partidos));
+      }
+    } catch (e) {}
+
+    try {
+      // Load all registration data
+      const rr = await fetch(scriptUrl + '?action=getAllRegistro');
+      const jr = await rr.json();
+      if (jr.status === 'success' && jr.data) {
+        allRegistro = jr.data;
+        // Build cache
+        allRegistro.forEach(r => {
+          if (!cachedRegistro[r.partidoId]) cachedRegistro[r.partidoId] = [];
+          cachedRegistro[r.partidoId].push(r);
+        });
+        // Build registered IDs
+        allRegistro.forEach(r => registeredIds.add(r.partidoId));
+      }
+    } catch (e) {}
+
+    fetchRegisteredPartidos();
+  } else if (!players.length) {
+    toast('Configurá la URL del Apps Script', 'error');
+  }
+
+  renderPartidoSelect();
+  renderConfigPlayers();
+});
+
+// ======================== NAVIGATION ========================
+function go(screen, btn) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('scr-' + screen).classList.add('active');
+  document.querySelectorAll('.nav button').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  const titles = { registro: 'Registro', pagos: 'Pagos', resumen: 'Resumen', config: 'Configuración' };
+  const subs = { registro: 'Registrar partido', pagos: 'Gestionar pagos', resumen: 'Resumen de pagos', config: 'Ajustes de la app' };
+  document.getElementById('hdr-title').textContent = titles[screen];
+  document.getElementById('hdr-sub').textContent = subs[screen];
+  if (screen === 'pagos') renderPagosList();
+  if (screen === 'resumen') renderResumenPartidos();
+  if (screen === 'registro') {
+    resetRegistro();
+    renderPartidoSelect();
+  }
+}
+
+// ======================== REGISTRO ========================
+function renderPartidoSelect() {
+  const sel = document.getElementById('partido-sel');
+  sel.innerHTML = '<option value="">Seleccioná un partido...</option>';
+  partidos.forEach(p => {
+    const o = document.createElement('option');
+    o.value = p.id;
+    const hasData = registeredIds.has(p.id);
+    o.textContent = (hasData ? '✅ ' : '') + 'vs ' + p.rival;
+    sel.appendChild(o);
+  });
+}
+
+async function onPartidoChange(val) {
+  document.getElementById('registro-body').style.display = 'none';
+  document.getElementById('registro-banner').className = 'date-banner';
+  document.getElementById('registro-placeholder').style.display = 'none';
+
+  if (!val) {
+    document.getElementById('registro-placeholder').style.display = 'block';
+    return;
+  }
+
+  const pid = parseInt(val);
+  const partido = partidos.find(p => p.id === pid);
+
+  // Check if we have cached data
+  let records = cachedRegistro[pid] || null;
+
+  if (records === null && scriptUrl) {
+    // Show loading
+    const checkDiv = document.getElementById('registro-checking');
+    checkDiv.style.display = 'flex';
+    checkDiv.querySelector('.check-msg').textContent = 'Verificando vs ' + partido.rival + '...';
+    try {
+      const r = await fetch(scriptUrl + '?action=getRegistro&partidoId=' + pid);
+      const j = await r.json();
+      records = (j.status === 'success' && j.data) ? j.data : [];
+      cachedRegistro[pid] = records;
+    } catch (e) {
+      records = [];
+    }
+    checkDiv.style.display = 'none';
+  }
+
+  if (!records) records = [];
+
+  // Show banner
+  const banner = document.getElementById('registro-banner');
+  if (records.length > 0) {
+    banner.className = 'date-banner loaded';
+    banner.innerHTML = '✅&nbsp;<strong>vs ' + partido.rival + '</strong>&nbsp;— datos cargados';
+  } else {
+    banner.className = 'date-banner new';
+    banner.innerHTML = '📝&nbsp;<strong>vs ' + partido.rival + '</strong>&nbsp;— nuevo registro';
+  }
+
+  // Render form
+  renderRegistroForm();
+  document.getElementById('registro-body').style.display = 'block';
+
+  if (records.length > 0) {
+    applyRegistroData(records);
+  } else {
+    // Default all to N/C
+    players.forEach((_, i) => setRegStatus(i, 'N/C'));
+  }
+}
+
+function resetRegistro() {
+  document.getElementById('partido-sel').value = '';
+  document.getElementById('registro-body').style.display = 'none';
+  document.getElementById('registro-banner').className = 'date-banner';
+  document.getElementById('registro-checking').style.display = 'none';
+  document.getElementById('registro-placeholder').style.display = 'block';
+}
+
+function renderRegistroForm() {
+  const c = document.getElementById('registro-list');
+  c.innerHTML = '';
+  players.forEach((p, i) => {
+    const isArquero = p.posicion === 'Arquero';
+    const div = document.createElement('div');
+    div.className = 'player-card status-NC';
+    div.id = 'rpc-' + i;
+    div.innerHTML = `
+      <div class="player-top">
+        <span class="name">${p.nombre}</span>
+        <span class="pos-badge ${isArquero ? 'pos-arquero' : 'pos-jugador'}">${p.posicion}</span>
+      </div>
+      <div style="margin-top:8px">
+        <div class="status-btns">
+          <button onclick="setRegStatus(${i},'T')">T</button>
+          <button onclick="setRegStatus(${i},'S c/min')">S c/m</button>
+          <button onclick="setRegStatus(${i},'S')">S</button>
+          <button class="sel-NC" onclick="setRegStatus(${i},'N/C')">N/C</button>
+        </div>
+      </div>
+      <div class="extras-row" id="extras-${i}" style="display:none">
+        <div class="goal-ctrl">
+          ⚽ <button onclick="changeGoals(${i},-1)">−</button>
+          <span class="goal-num" id="goals-${i}">0</span>
+          <button onclick="changeGoals(${i},1)">+</button>
+        </div>
+        ${isArquero ? `
+        <div class="valla-toggle">
+          🧤 Valla:
+          <button id="valla-${i}" onclick="toggleValla(${i})">No</button>
+        </div>
+        ` : ''}
+      </div>
+    `;
+    c.appendChild(div);
+  });
+}
+
+function setRegStatus(idx, st) {
+  const card = document.getElementById('rpc-' + idx);
+  const stClass = st === 'S c/min' ? 'SM' : st === 'N/C' ? 'NC' : st;
+  card.className = 'player-card status-' + stClass;
+  card.querySelectorAll('.status-btns button').forEach(b => {
+    b.className = '';
+    const bst = b.textContent.trim();
+    const mapped = bst === 'S c/m' ? 'S c/min' : bst;
+    if (mapped === st) b.className = 'sel-' + stClass;
+  });
+  // Show/hide extras row (goals, valla)
+  const extras = document.getElementById('extras-' + idx);
+  if (st === 'T' || st === 'S c/min' || st === 'S') {
+    extras.style.display = 'flex';
+  } else {
+    extras.style.display = 'none';
+    // Reset goals and valla
+    document.getElementById('goals-' + idx).textContent = '0';
+    const vallaBtn = document.getElementById('valla-' + idx);
+    if (vallaBtn) { vallaBtn.textContent = 'No'; vallaBtn.className = ''; }
+  }
+}
+
+function changeGoals(idx, delta) {
+  const el = document.getElementById('goals-' + idx);
+  let v = parseInt(el.textContent) + delta;
+  if (v < 0) v = 0;
+  el.textContent = v;
+}
+
+function toggleValla(idx) {
+  const btn = document.getElementById('valla-' + idx);
+  if (btn.textContent === 'No') {
+    btn.textContent = 'Sí';
+    btn.className = 'valla-si';
+  } else {
+    btn.textContent = 'No';
+    btn.className = '';
+  }
+}
+
+function applyRegistroData(records) {
+  // Reset all to N/C first
+  players.forEach((_, i) => setRegStatus(i, 'N/C'));
+  const map = {};
+  records.forEach(r => {
+    map[r.jugador.toUpperCase()] = r;
+  });
+  players.forEach((p, i) => {
+    const d = map[p.nombre.toUpperCase()];
+    if (d) {
+      setRegStatus(i, d.estado);
+      document.getElementById('goals-' + i).textContent = d.goles || 0;
+      const vallaBtn = document.getElementById('valla-' + i);
+      if (vallaBtn && d.vallaInvicta === 'Sí') {
+        vallaBtn.textContent = 'Sí';
+        vallaBtn.className = 'valla-si';
+      }
+    }
+  });
+}
+
+function getRegistroFormData() {
+  const sel = document.getElementById('partido-sel');
+  const pid = parseInt(sel.value);
+  if (!pid) return null;
+  const partido = partidos.find(p => p.id === pid);
+  const ts = new Date().toISOString();
+  const records = [];
+
+  players.forEach((p, i) => {
+    const card = document.getElementById('rpc-' + i);
+    const selBtn = card.querySelector('.status-btns button[class*="sel-"]');
+    let st = 'N/C';
+    if (selBtn) {
+      const cls = selBtn.className.trim();
+      if (cls === 'sel-T') st = 'T';
+      else if (cls === 'sel-SM') st = 'S c/min';
+      else if (cls === 'sel-S') st = 'S';
+      else if (cls === 'sel-NC') st = 'N/C';
+    }
+    const goles = parseInt(document.getElementById('goals-' + i).textContent) || 0;
+    const vallaBtn = document.getElementById('valla-' + i);
+    const valla = vallaBtn ? vallaBtn.textContent : 'No';
+
+    records.push({
+      timestamp: ts,
+      partidoId: pid,
+      partidoRival: partido.rival,
+      jugador: p.nombre,
+      estado: st,
+      goles: goles,
+      vallaInvicta: valla
+    });
+  });
+
+  return { partidoId: pid, partidoRival: partido.rival, records };
+}
+
+async function saveRegistro() {
+  const data = getRegistroFormData();
+  if (!data) { toast('Seleccioná un partido', 'error'); return; }
+
+  const btn = document.getElementById('btn-save-reg');
+  btn.disabled = true; btn.textContent = 'Guardando...';
+
+  try {
+    // Update local cache
+    cachedRegistro[data.partidoId] = data.records;
+    registeredIds.add(data.partidoId);
+
+    // Also update allRegistro
+    allRegistro = allRegistro.filter(r => r.partidoId !== data.partidoId);
+    allRegistro.push(...data.records);
+
+    // Save to Apps Script
+    if (scriptUrl) {
+      await fetch(scriptUrl, {
+        method: 'POST', mode: 'no-cors',
+        headers: { 'Content-Type': 'text/plain' },
+        body: JSON.stringify({
+          action: 'saveRegistro',
+          data: data.records,
+          partidoId: data.partidoId,
+          partidoRival: data.partidoRival,
+          overwrite: true
+        })
+      });
+    }
+
+    toast('✓ Registro guardado — vs ' + data.partidoRival, 'success');
+    renderPartidoSelect();
+    document.getElementById('partido-sel').value = data.partidoId;
+
+    // Update banner
+    const banner = document.getElementById('registro-banner');
+    banner.className = 'date-banner loaded';
+    banner.innerHTML = '✅&nbsp;<strong>vs ' + data.partidoRival + '</strong>&nbsp;— datos guardados';
+  } catch (e) {
+    toast('Error: ' + e.message, 'error');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Guardar Registro';
+  }
+}
+
+async function fetchRegisteredPartidos() {
+  if (!scriptUrl) return;
+  try {
+    const r = await fetch(scriptUrl + '?action=getRegisteredPartidos');
+    const j = await r.json();
+    if (j.status === 'success' && j.ids) {
+      registeredIds = new Set(j.ids);
+      renderPartidoSelect();
+    }
+  } catch (e) {}
+}
+
+// ======================== PAGOS ========================
+function renderPagosList() {
+  const c = document.getElementById('pagos-player-list');
+  c.innerHTML = '';
+  document.getElementById('pagos-list-view').style.display = 'block';
+  document.getElementById('pagos-detail-view').className = 'pago-detail';
+
+  if (!players.length) {
+    c.innerHTML = '<div class="form-placeholder"><div class="ico-big">👥</div><p>No hay jugadores cargados</p></div>';
+    return;
+  }
+
+  players.forEach((p, i) => {
+    const div = document.createElement('div');
+    div.className = 'player-list-item';
+    div.onclick = () => openPagoDetail(i);
+
+    const tipoBadge = {
+      'Por partido': 'badge-green',
+      'Quincena': 'badge-blue',
+      'Mensual': 'badge-purple',
+      'N/A': 'badge-yellow'
+    }[p.tipoContratacion] || 'badge-yellow';
+
+    div.innerHTML = `
+      <div class="pl-info">
+        <div class="pl-name">${p.nombre}</div>
+        <div class="pl-meta">
+          <span class="badge ${tipoBadge}">${p.tipoContratacion}</span>
+          <span class="badge ${p.posicion === 'Arquero' ? 'badge-orange' : 'badge-blue'}">${p.posicion}</span>
+        </div>
+      </div>
+      <span class="pl-arrow">→</span>
+    `;
+    c.appendChild(div);
+  });
+}
+
+function openPagoDetail(playerIdx) {
+  currentPagoPlayer = players[playerIdx];
+  currentPagoDiscounts = [];
+
+  document.getElementById('pagos-list-view').style.display = 'none';
+  document.getElementById('pagos-detail-view').className = 'pago-detail active';
+
+  // Header
+  const hdr = document.getElementById('pago-player-header');
+  const p = currentPagoPlayer;
+  const tipoBadge = {
+    'Por partido': 'badge-green',
+    'Quincena': 'badge-blue',
+    'Mensual': 'badge-purple',
+    'N/A': 'badge-yellow'
+  }[p.tipoContratacion] || 'badge-yellow';
+
+  let montoInfo = '';
+  if (p.tipoContratacion === 'Por partido') {
+    montoInfo = `T: $${fmt(p.montoTitular)} | S c/m: $${fmt(p.montoSuplenteMin)} | S: $${fmt(p.montoSuplente)}`;
+  } else if (p.tipoContratacion === 'Quincena') {
+    montoInfo = `$${fmt(p.montoQuincena)} cada 2 partidos`;
+  } else if (p.tipoContratacion === 'Mensual') {
+    montoInfo = `$${fmt(p.montoMensual)} mensual`;
+  }
+  if (p.montoGol > 0) montoInfo += ` | Gol: $${fmt(p.montoGol)}`;
+  if (p.posicion === 'Arquero' && p.montoValla > 0) montoInfo += ` | Valla: $${fmt(p.montoValla)}`;
+
+  hdr.innerHTML = `
+    <div class="card" style="margin-bottom:12px">
+      <div class="card-hdr">${p.nombre}
+        <span class="badge ${tipoBadge}">${p.tipoContratacion}</span>
+      </div>
+      <div style="padding:10px 14px;font-size:.8rem;color:var(--gray)">${montoInfo}</div>
+    </div>
+  `;
+
+  // Render partidos with checkboxes
+  renderPagoPartidos();
+  renderPagoCalc();
+  renderDiscounts();
+}
+
+function renderPagoPartidos() {
+  const c = document.getElementById('pago-partidos-list');
+  c.innerHTML = '';
+  const pName = currentPagoPlayer.nombre.toUpperCase();
+
+  // Only show partidos that have registration data
+  const registeredPartidos = partidos.filter(p => registeredIds.has(p.id));
+
+  if (!registeredPartidos.length) {
+    c.innerHTML = '<div style="padding:20px;text-align:center;color:var(--gray);font-size:.9rem">No hay partidos registrados aún</div>';
+    return;
+  }
+
+  registeredPartidos.forEach(p => {
+    const records = cachedRegistro[p.id] || [];
+    const playerRec = records.find(r => r.jugador.toUpperCase() === pName);
+    const estado = playerRec ? playerRec.estado : 'N/C';
+    const goles = playerRec ? playerRec.goles : 0;
+    const valla = playerRec ? playerRec.vallaInvicta : 'No';
+    const monto = calcMontoPartido(currentPagoPlayer, estado, goles, valla);
+    const isPerMatch = currentPagoPlayer.tipoContratacion === 'Por partido';
+
+    const div = document.createElement('div');
+    div.className = 'partido-check';
+    div.innerHTML = `
+      <input type="checkbox" id="pago-check-${p.id}" onchange="renderPagoCalc()" ${estado === 'N/C' ? 'disabled' : ''}>
+      <div class="pc-info">
+        <div class="pc-rival">vs ${p.rival}</div>
+        <div class="pc-estado">${estadoLabel(estado)}${goles > 0 ? ' · ' + goles + ' gol' + (goles > 1 ? 'es' : '') : ''}${valla === 'Sí' ? ' · Valla invicta' : ''}</div>
+      </div>
+      <div class="pc-monto">${estado !== 'N/C' ? (isPerMatch || monto > 0 ? '$' + fmt(monto) : '✓') : '-'}</div>
+    `;
+    c.appendChild(div);
+  });
+}
+
+function calcMontoPartido(player, estado, goles, valla) {
+  let monto = 0;
+
+  if (player.tipoContratacion === 'Por partido') {
+    if (estado === 'T') monto = player.montoTitular;
+    else if (estado === 'S c/min') monto = player.montoSuplenteMin;
+    else if (estado === 'S') monto = player.montoSuplente;
+  }
+  // For Quincena: the per-partido portion is calculated at summary level
+  // For Mensual: same, calculated at summary level
+
+  // Goal bonus (applies to all contract types)
+  monto += (goles || 0) * player.montoGol;
+
+  // Clean sheet bonus (only for goalkeepers)
+  if (player.posicion === 'Arquero' && valla === 'Sí') {
+    monto += player.montoValla;
+  }
+
+  return monto;
+}
+
+function renderPagoCalc() {
+  const c = document.getElementById('pago-calc');
+  c.innerHTML = '';
+  const p = currentPagoPlayer;
+  const pName = p.nombre.toUpperCase();
+
+  const registeredPartidos = partidos.filter(pt => registeredIds.has(pt.id));
+  let selectedPartidos = [];
+  let totalBase = 0;
+  let totalGoles = 0;
+  let totalValla = 0;
+  let golesCount = 0;
+  let vallaCount = 0;
+
+  registeredPartidos.forEach(pt => {
+    const chk = document.getElementById('pago-check-' + pt.id);
+    if (!chk || !chk.checked) return;
+
+    const records = cachedRegistro[pt.id] || [];
+    const playerRec = records.find(r => r.jugador.toUpperCase() === pName);
+    if (!playerRec || playerRec.estado === 'N/C') return;
+
+    selectedPartidos.push({ partido: pt, record: playerRec });
+
+    // Calculate base amount per partido
+    if (p.tipoContratacion === 'Por partido') {
+      if (playerRec.estado === 'T') totalBase += p.montoTitular;
+      else if (playerRec.estado === 'S c/min') totalBase += p.montoSuplenteMin;
+      else if (playerRec.estado === 'S') totalBase += p.montoSuplente;
+    }
+
+    // Goals
+    if (playerRec.goles > 0) {
+      golesCount += playerRec.goles;
+      totalGoles += playerRec.goles * p.montoGol;
+    }
+
+    // Valla invicta
+    if (p.posicion === 'Arquero' && playerRec.vallaInvicta === 'Sí') {
+      vallaCount++;
+      totalValla += p.montoValla;
+    }
+  });
+
+  // Quincena: calculate based on pairs
+  let quinncenaAmount = 0;
+  if (p.tipoContratacion === 'Quincena' && selectedPartidos.length > 0) {
+    const pares = Math.floor(selectedPartidos.length / 2);
+    quinncenaAmount = pares * p.montoQuincena;
+    totalBase = quinncenaAmount;
+  }
+
+  // Mensual: flat amount
+  let mensualAmount = 0;
+  if (p.tipoContratacion === 'Mensual' && selectedPartidos.length > 0) {
+    mensualAmount = p.montoMensual;
+    totalBase = mensualAmount;
+  }
+
+  const bruto = totalBase + totalGoles + totalValla;
+
+  // Render calculation details
+  let h = '';
+
+  if (selectedPartidos.length === 0) {
+    h = '<div style="padding:20px;text-align:center;color:var(--gray);font-size:.9rem">Seleccioná partidos para calcular</div>';
+  } else {
+    // Detail per partido
+    selectedPartidos.forEach(sp => {
+      const r = sp.record;
+      if (p.tipoContratacion === 'Por partido') {
+        let montoLinea = 0;
+        if (r.estado === 'T') montoLinea = p.montoTitular;
+        else if (r.estado === 'S c/min') montoLinea = p.montoSuplenteMin;
+        else if (r.estado === 'S') montoLinea = p.montoSuplente;
+        h += `<div class="calc-row"><span class="label">vs ${sp.partido.rival} (${estadoLabel(r.estado)})</span><span class="value">$${fmt(montoLinea)}</span></div>`;
+      } else {
+        h += `<div class="calc-row"><span class="label">vs ${sp.partido.rival} (${estadoLabel(r.estado)})</span><span class="value" style="color:var(--gray);font-size:.8rem">incluido</span></div>`;
+      }
+    });
+
+    if (p.tipoContratacion === 'Quincena') {
+      const pares = Math.floor(selectedPartidos.length / 2);
+      const restante = selectedPartidos.length % 2;
+      h += `<div class="calc-row"><span class="label">Quincena: ${pares} par${pares !== 1 ? 'es' : ''} × $${fmt(p.montoQuincena)}</span><span class="value">$${fmt(quinncenaAmount)}</span></div>`;
+      if (restante > 0) {
+        h += `<div class="calc-row"><span class="label" style="color:var(--yellow)">⚠️ 1 partido suelto (no se cobra)</span><span class="value">-</span></div>`;
+      }
+    }
+
+    if (p.tipoContratacion === 'Mensual') {
+      h += `<div class="calc-row"><span class="label">Mensual fijo</span><span class="value">$${fmt(mensualAmount)}</span></div>`;
+    }
+
+    if (golesCount > 0) {
+      h += `<div class="calc-row"><span class="label">⚽ ${golesCount} gol${golesCount > 1 ? 'es' : ''} × $${fmt(p.montoGol)}</span><span class="value">$${fmt(totalGoles)}</span></div>`;
+    }
+
+    if (vallaCount > 0) {
+      h += `<div class="calc-row"><span class="label">🧤 ${vallaCount} valla${vallaCount > 1 ? 's' : ''} invicta${vallaCount > 1 ? 's' : ''} × $${fmt(p.montoValla)}</span><span class="value">$${fmt(totalValla)}</span></div>`;
+    }
+
+    h += `<div class="calc-row total"><span class="label">Subtotal bruto</span><span class="value">$${fmt(bruto)}</span></div>`;
+  }
+
+  c.innerHTML = h;
+
+  // Update total
+  renderPagoTotal();
+}
+
+function renderDiscounts() {
+  const c = document.getElementById('pago-discounts');
+  c.innerHTML = '';
+  if (currentPagoDiscounts.length === 0) {
+    c.innerHTML = '<div style="padding:14px;text-align:center;color:var(--gray);font-size:.85rem">Sin descuentos</div>';
+    return;
+  }
+  currentPagoDiscounts.forEach((d, i) => {
+    const div = document.createElement('div');
+    div.className = 'discount-item';
+    div.innerHTML = `
+      <input type="text" placeholder="Descripción" value="${d.desc}" oninput="updateDiscount(${i},'desc',this.value)">
+      <input type="number" placeholder="Monto" value="${d.monto || ''}" oninput="updateDiscount(${i},'monto',this.value)" min="0">
+      <button class="disc-del" onclick="removeDiscount(${i})">×</button>
+    `;
+    c.appendChild(div);
+  });
+}
+
+function addDiscount() {
+  currentPagoDiscounts.push({ desc: '', monto: 0 });
+  renderDiscounts();
+}
+
+function removeDiscount(idx) {
+  currentPagoDiscounts.splice(idx, 1);
+  renderDiscounts();
+  renderPagoTotal();
+}
+
+function updateDiscount(idx, field, value) {
+  if (field === 'monto') currentPagoDiscounts[idx].monto = parseFloat(value) || 0;
+  else currentPagoDiscounts[idx].desc = value;
+  renderPagoTotal();
+}
+
+function renderPagoTotal() {
+  const c = document.getElementById('pago-total');
+  const bruto = getBrutoActual();
+  const totalDesc = currentPagoDiscounts.reduce((s, d) => s + (d.monto || 0), 0);
+  const neto = bruto - totalDesc;
+
+  let h = '';
+  h += `<div class="calc-row"><span class="label">Subtotal bruto</span><span class="value">$${fmt(bruto)}</span></div>`;
+  if (totalDesc > 0) {
+    h += `<div class="calc-row"><span class="label" style="color:var(--red)">Descuentos</span><span class="value" style="color:var(--red)">-$${fmt(totalDesc)}</span></div>`;
+  }
+  h += `<div class="calc-row total"><span class="label">TOTAL A PAGAR</span><span class="value" style="color:${neto >= 0 ? 'var(--green)' : 'var(--red)'}">$${fmt(neto)}</span></div>`;
+  c.innerHTML = h;
+}
+
+function getBrutoActual() {
+  const p = currentPagoPlayer;
+  if (!p) return 0;
+  const pName = p.nombre.toUpperCase();
+  const registeredPartidos = partidos.filter(pt => registeredIds.has(pt.id));
+  let selectedPartidos = [];
+  let totalBase = 0;
+  let totalGoles = 0;
+  let totalValla = 0;
+
+  registeredPartidos.forEach(pt => {
+    const chk = document.getElementById('pago-check-' + pt.id);
+    if (!chk || !chk.checked) return;
+    const records = cachedRegistro[pt.id] || [];
+    const playerRec = records.find(r => r.jugador.toUpperCase() === pName);
+    if (!playerRec || playerRec.estado === 'N/C') return;
+    selectedPartidos.push(playerRec);
+
+    if (p.tipoContratacion === 'Por partido') {
+      if (playerRec.estado === 'T') totalBase += p.montoTitular;
+      else if (playerRec.estado === 'S c/min') totalBase += p.montoSuplenteMin;
+      else if (playerRec.estado === 'S') totalBase += p.montoSuplente;
+    }
+    if (playerRec.goles > 0) totalGoles += playerRec.goles * p.montoGol;
+    if (p.posicion === 'Arquero' && playerRec.vallaInvicta === 'Sí') totalValla += p.montoValla;
+  });
+
+  if (p.tipoContratacion === 'Quincena' && selectedPartidos.length > 0) {
+    totalBase = Math.floor(selectedPartidos.length / 2) * p.montoQuincena;
+  }
+  if (p.tipoContratacion === 'Mensual' && selectedPartidos.length > 0) {
+    totalBase = p.montoMensual;
+  }
+
+  return totalBase + totalGoles + totalValla;
+}
+
+function backToPagosList() {
+  currentPagoPlayer = null;
+  currentPagoDiscounts = [];
+  document.getElementById('pagos-detail-view').className = 'pago-detail';
+  document.getElementById('pagos-list-view').style.display = 'block';
+}
+
+async function savePago() {
+  if (!currentPagoPlayer) return;
+  const bruto = getBrutoActual();
+  const totalDesc = currentPagoDiscounts.reduce((s, d) => s + (d.monto || 0), 0);
+  const neto = bruto - totalDesc;
+
+  if (bruto === 0) { toast('No hay monto a pagar', 'error'); return; }
+
+  // Build list of selected partidos
+  const registeredPartidos = partidos.filter(pt => registeredIds.has(pt.id));
+  const selectedNames = [];
+  registeredPartidos.forEach(pt => {
+    const chk = document.getElementById('pago-check-' + pt.id);
+    if (chk && chk.checked) selectedNames.push('vs ' + pt.rival);
+  });
+
+  const descJson = currentPagoDiscounts.filter(d => d.monto > 0).map(d => d.desc + ': $' + d.monto).join('; ');
+
+  const record = {
+    timestamp: new Date().toISOString(),
+    jugador: currentPagoPlayer.nombre,
+    partidos: selectedNames.join(', '),
+    montoBruto: bruto,
+    descuentos: descJson,
+    montoNeto: neto
+  };
+
+  try {
+    if (scriptUrl) {
+      await fetch(scriptUrl, {
+        method: 'POST', mode: 'no-cors',
+        headers: { 'Content-Type': 'text/plain' },
+        body: JSON.stringify({ action: 'savePago', data: record })
+      });
+    }
+    toast('✓ Pago registrado — ' + currentPagoPlayer.nombre, 'success');
+    backToPagosList();
+  } catch (e) {
+    toast('Error: ' + e.message, 'error');
+  }
+}
+
+// ======================== RESUMEN ========================
+function renderResumenPartidos() {
+  const c = document.getElementById('resumen-partidos-list');
+  c.innerHTML = '';
+
+  const registeredPartidos = partidos.filter(p => registeredIds.has(p.id));
+
+  if (!registeredPartidos.length) {
+    c.innerHTML = '<div style="padding:20px;text-align:center;color:var(--gray);font-size:.9rem">No hay partidos registrados</div>';
+    return;
+  }
+
+  registeredPartidos.forEach(p => {
+    const div = document.createElement('div');
+    div.className = 'partido-check';
+    div.innerHTML = `
+      <input type="checkbox" id="resumen-check-${p.id}">
+      <div class="pc-info">
+        <div class="pc-rival">vs ${p.rival}</div>
+      </div>
+    `;
+    c.appendChild(div);
+  });
+}
+
+function calcResumen() {
+  const out = document.getElementById('resumen-output');
+  const registeredPartidos = partidos.filter(p => registeredIds.has(p.id));
+
+  // Get selected partido IDs
+  const selectedIds = [];
+  registeredPartidos.forEach(p => {
+    const chk = document.getElementById('resumen-check-' + p.id);
+    if (chk && chk.checked) selectedIds.push(p.id);
+  });
+
+  if (!selectedIds.length) {
+    out.innerHTML = '<div class="card" style="padding:20px;text-align:center;color:var(--gray)">Seleccioná al menos un partido</div>';
+    return;
+  }
+
+  // Calculate for each player
+  let grandTotal = 0;
+  const rows = [];
+
+  players.forEach(p => {
+    const pName = p.nombre.toUpperCase();
+    let totalBase = 0;
+    let totalGoles = 0;
+    let totalValla = 0;
+    let partidosJugados = 0;
+    let golesCount = 0;
+    let vallaCount = 0;
+    const detalles = [];
+
+    selectedIds.forEach(pid => {
+      const records = cachedRegistro[pid] || [];
+      const playerRec = records.find(r => r.jugador.toUpperCase() === pName);
+      if (!playerRec || playerRec.estado === 'N/C') return;
+
+      partidosJugados++;
+      const partido = partidos.find(pt => pt.id === pid);
+
+      if (p.tipoContratacion === 'Por partido') {
+        let m = 0;
+        if (playerRec.estado === 'T') m = p.montoTitular;
+        else if (playerRec.estado === 'S c/min') m = p.montoSuplenteMin;
+        else if (playerRec.estado === 'S') m = p.montoSuplente;
+        totalBase += m;
+        detalles.push(`${partido.rival} (${estadoLabel(playerRec.estado)}): $${fmt(m)}`);
+      } else {
+        detalles.push(`${partido.rival} (${estadoLabel(playerRec.estado)})`);
+      }
+
+      if (playerRec.goles > 0) {
+        golesCount += playerRec.goles;
+        totalGoles += playerRec.goles * p.montoGol;
+      }
+      if (p.posicion === 'Arquero' && playerRec.vallaInvicta === 'Sí') {
+        vallaCount++;
+        totalValla += p.montoValla;
+      }
+    });
+
+    if (p.tipoContratacion === 'Quincena' && partidosJugados > 0) {
+      totalBase = Math.floor(partidosJugados / 2) * p.montoQuincena;
+    }
+    if (p.tipoContratacion === 'Mensual' && partidosJugados > 0) {
+      totalBase = p.montoMensual;
+    }
+
+    const total = totalBase + totalGoles + totalValla;
+    if (total > 0 || partidosJugados > 0) {
+      grandTotal += total;
+      rows.push({
+        nombre: p.nombre,
+        tipo: p.tipoContratacion,
+        partidos: partidosJugados,
+        base: totalBase,
+        goles: totalGoles,
+        golesCount,
+        valla: totalValla,
+        vallaCount,
+        total,
+        detalles
+      });
+    }
+  });
+
+  // Render table
+  let h = '<div class="card"><div class="card-hdr">Detalle por jugador</div><div style="overflow-x:auto"><table class="resumen-table"><thead><tr>';
+  h += '<th>Jugador</th><th>Tipo</th><th>PJ</th><th style="text-align:right">Base</th><th style="text-align:right">Goles</th><th style="text-align:right">Valla</th><th style="text-align:right">Total</th>';
+  h += '</tr></thead><tbody>';
+
+  rows.sort((a, b) => b.total - a.total);
+  rows.forEach(r => {
+    h += `<tr>
+      <td class="rt-name">${r.nombre}</td>
+      <td><span class="badge ${{'Por partido':'badge-green','Quincena':'badge-blue','Mensual':'badge-purple','N/A':'badge-yellow'}[r.tipo] || 'badge-yellow'}">${r.tipo}</span></td>
+      <td>${r.partidos}</td>
+      <td class="rt-amount">$${fmt(r.base)}</td>
+      <td class="rt-amount">${r.golesCount > 0 ? '$' + fmt(r.goles) : '-'}</td>
+      <td class="rt-amount">${r.vallaCount > 0 ? '$' + fmt(r.valla) : '-'}</td>
+      <td class="rt-amount" style="color:var(--green-text)">$${fmt(r.total)}</td>
+    </tr>`;
+  });
+
+  h += '</tbody></table></div></div>';
+
+  h += `<div class="resumen-total">TOTAL A PAGAR: $${fmt(grandTotal)}</div>`;
+
+  // Summary cards
+  const partidosNames = selectedIds.map(id => {
+    const p = partidos.find(pt => pt.id === id);
+    return p ? 'vs ' + p.rival : '';
+  }).join(', ');
+
+  h = `<div class="card" style="margin-bottom:12px"><div class="card-hdr">Partidos seleccionados</div>
+    <div style="padding:10px 14px;font-size:.85rem;color:var(--gray)">${partidosNames}</div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:12px">
+      <div style="text-align:center;padding:10px;background:var(--gray-light);border-radius:8px"><div style="font-size:1.6rem;font-weight:800">${selectedIds.length}</div><div style="font-size:.7rem;color:var(--gray)">Partidos</div></div>
+      <div style="text-align:center;padding:10px;background:var(--gray-light);border-radius:8px"><div style="font-size:1.6rem;font-weight:800">${rows.length}</div><div style="font-size:.7rem;color:var(--gray)">Jugadores</div></div>
+      <div style="text-align:center;padding:10px;background:var(--gray-light);border-radius:8px"><div style="font-size:1.6rem;font-weight:800;color:var(--green)">$${fmt(grandTotal)}</div><div style="font-size:.7rem;color:var(--gray)">Total</div></div>
+    </div>
+  </div>` + h;
+
+  out.innerHTML = h;
+}
+
+// ======================== CONFIG ========================
+function renderConfigPlayers() {
+  const c = document.getElementById('config-players-list');
+  c.innerHTML = '';
+  if (!players.length) {
+    c.innerHTML = '<div style="padding:20px;text-align:center;color:var(--gray);font-size:.85rem">Sin jugadores. Configurá la URL y recargá.</div>';
+    return;
+  }
+  players.forEach(p => {
+    const div = document.createElement('div');
+    div.className = 'mgmt-item';
+    div.innerHTML = `
+      <span class="mi-name">${p.nombre}</span>
+      <div class="mi-detail">
+        <span class="badge ${p.posicion === 'Arquero' ? 'badge-orange' : 'badge-blue'}">${p.posicion}</span>
+        <span class="badge ${{
+          'Por partido': 'badge-green',
+          'Quincena': 'badge-blue',
+          'Mensual': 'badge-purple',
+          'N/A': 'badge-yellow'
+        }[p.tipoContratacion] || 'badge-yellow'}">${p.tipoContratacion}</span>
+      </div>
+    `;
+    c.appendChild(div);
+  });
+}
+
+function saveCfg() {
+  scriptUrl = document.getElementById('cfg-url').value.trim();
+  localStorage.setItem('pagos_script_url', scriptUrl);
+  toast(scriptUrl ? 'URL guardada — recargá la app' : 'URL borrada', 'success');
+}
+
+// ======================== HELPERS ========================
+function estadoLabel(st) {
+  const labels = { 'T': 'Titular', 'S c/min': 'Supl. c/min', 'S': 'Suplente', 'N/C': 'No convocado' };
+  return labels[st] || st;
+}
+
+function fmt(n) {
+  if (n === 0) return '0';
+  return n.toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+}
+
+function toast(msg, type) {
+  const t = document.createElement('div');
+  t.className = 'toast ' + type;
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 2500);
+}
+
+// ======================== PWA / SERVICE WORKER ========================
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+</script>
+</body>
+</html>
