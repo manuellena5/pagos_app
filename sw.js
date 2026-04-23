@@ -1,4 +1,4 @@
-const CACHE_NAME = 'pagos-v3';
+const CACHE_NAME = 'pagos-v4';
 const CACHED_URLS = [
   './pagos_app.html',
   './manifest.json',
