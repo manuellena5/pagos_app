@@ -138,7 +138,10 @@ body{display:flex;flex-direction:column;padding-bottom:68px}
 .btn-suggest:active{background:var(--primary);color:#fff}
 .partido-check input[type="checkbox"]{width:20px;height:20px;accent-color:var(--primary)}
 .partido-check .pc-info{flex:1}
-.partido-check .pc-rival{font-weight:600;font-size:.9rem}
+.partido-check .pc-rival{font-weight:600;font-size:.9rem;display:flex;align-items:center;gap:8px}
+.paid-badge{font-size:.65rem;font-weight:700;padding:2px 8px;border-radius:10px;background:var(--green);color:#fff}
+.nc-badge{font-size:.65rem;font-weight:700;padding:2px 8px;border-radius:10px;background:var(--red-bg);color:var(--red-text)}
+.partido-check.partido-paid{background:var(--green-bg)}
 .partido-check .pc-estado{font-size:.75rem;color:var(--gray);margin-top:2px}
 .partido-check .pc-monto{font-weight:700;font-size:.9rem;color:var(--green-text)}
 
@@ -880,6 +883,12 @@ function openPagoDetail(playerIdx) {
   currentPagoPlayer = players[playerIdx];
   currentPagoDiscounts = [];
 
+  // Clear custom amount
+  const customAmountInput = document.getElementById('pago-custom-amount');
+  if (customAmountInput) {
+    customAmountInput.value = '';
+  }
+
   document.getElementById('pagos-list-view').style.display = 'none';
   document.getElementById('pagos-detail-view').className = 'pago-detail active';
 
@@ -1083,10 +1092,38 @@ function formatDate(isoDate) {
   } catch (e) { return isoDate; }
 }
 
+function checkPagosHistoricos() {
+  // Check which partidos have been already paid for this player
+  const playerName = currentPagoPlayer.nombre;
+  const pagosMap = {}; // {partidoId: true/false}
+
+  if (allPagos && allPagos.length > 0) {
+    allPagos.forEach(pago => {
+      if (pago.jugador === playerName && pago.partidos) {
+        // Parse partidos string like "vs Rival1, vs Rival2"
+        const pagosPartidos = pago.partidos.split(',').map(p => p.trim());
+        pagosPartidos.forEach(pagoPart => {
+          // Find matching partido by rival name
+          partidos.forEach(pt => {
+            if (pagoPart === ('vs ' + pt.rival)) {
+              pagosMap[pt.id] = true;
+            }
+          });
+        });
+      }
+    });
+  }
+
+  return pagosMap;
+}
+
 function renderPagoPartidos() {
   const c = document.getElementById('pago-partidos-list');
   c.innerHTML = '';
   const pName = currentPagoPlayer.nombre.toUpperCase();
+
+  // Get paid partidos history
+  const pagosMap = checkPagosHistoricos();
 
   // Only show partidos that have registration data
   const registeredPartidos = partidos.filter(p => registeredIds.has(p.id));
@@ -1104,16 +1141,24 @@ function renderPagoPartidos() {
     const valla = playerRec ? playerRec.vallaInvicta : 'No';
     const monto = calcMontoPartido(currentPagoPlayer, estado, goles, valla);
     const isPerMatch = currentPagoPlayer.tipoContratacion === 'Por partido';
+    const alreadyPaid = pagosMap[p.id] === true;
 
     const div = document.createElement('div');
-    div.className = 'partido-check';
+    div.className = 'partido-check' + (alreadyPaid ? ' partido-paid' : '');
+
+    // Allow payment for NC players with special agreements
+    let statusBadge = '';
+    if (estado === 'N/C') {
+      statusBadge = '<span class="nc-badge">No convocado</span>';
+    }
+
     div.innerHTML = `
-      <input type="checkbox" id="pago-check-${p.id}" onchange="renderPagoCalc()" ${estado === 'N/C' ? 'disabled' : ''}>
+      <input type="checkbox" id="pago-check-${p.id}" data-already-paid="${alreadyPaid}" onchange="renderPagoCalc()">
       <div class="pc-info">
-        <div class="pc-rival">vs ${p.rival}</div>
+        <div class="pc-rival">vs ${p.rival}${alreadyPaid ? ' <span class="paid-badge">✓ Pagado</span>' : ''}${statusBadge}</div>
         <div class="pc-estado">${estadoLabel(estado)}${goles > 0 ? ' · ' + goles + ' gol' + (goles > 1 ? 'es' : '') : ''}${valla === 'Sí' ? ' · Valla invicta' : ''}</div>
       </div>
-      <div class="pc-monto">${estado !== 'N/C' ? (isPerMatch || monto > 0 ? '$' + fmt(monto) : '✓') : '-'}</div>
+      <div class="pc-monto">${estado !== 'N/C' || alreadyPaid ? (isPerMatch || monto > 0 ? '$' + fmt(monto) : '✓') : '-'}</div>
     `;
     c.appendChild(div);
   });
@@ -1161,25 +1206,34 @@ function renderPagoCalc() {
 
     const records = cachedRegistro[pt.id] || [];
     const playerRec = records.find(r => r.jugador.toUpperCase() === pName);
-    if (!playerRec || playerRec.estado === 'N/C') return;
+
+    // Allow payment for NC players (special agreements)
+    if (!playerRec) return;
 
     selectedPartidos.push({ partido: pt, record: playerRec });
 
     // Calculate base amount per partido
     if (p.tipoContratacion === 'Por partido') {
-      if (playerRec.estado === 'T') totalBase += p.montoTitular;
-      else if (playerRec.estado === 'S c/min') totalBase += p.montoSuplenteMin;
-      else if (playerRec.estado === 'S') totalBase += p.montoSuplente;
+      if (playerRec.estado === 'N/C') {
+        // For NC players: use a manually entered amount or use montoSuplente as default
+        // The user will input the amount in the input field
+      } else if (playerRec.estado === 'T') {
+        totalBase += p.montoTitular;
+      } else if (playerRec.estado === 'S c/min') {
+        totalBase += p.montoSuplenteMin;
+      } else if (playerRec.estado === 'S') {
+        totalBase += p.montoSuplente;
+      }
     }
 
-    // Goals
-    if (playerRec.goles > 0) {
+    // Goals (only if actually played, not for NC)
+    if (playerRec.estado !== 'N/C' && playerRec.goles > 0) {
       golesCount += playerRec.goles;
       totalGoles += playerRec.goles * p.montoGol;
     }
 
-    // Valla invicta
-    if (p.posicion === 'Arquero' && playerRec.vallaInvicta === 'Sí') {
+    // Valla invicta (only if actually played, not for NC)
+    if (playerRec.estado !== 'N/C' && p.posicion === 'Arquero' && playerRec.vallaInvicta === 'Sí') {
       vallaCount++;
       totalValla += p.montoValla;
     }
@@ -1293,13 +1347,26 @@ function renderPagoTotal() {
   const bruto = getBrutoActual();
   const totalDesc = currentPagoDiscounts.reduce((s, d) => s + (d.monto || 0), 0);
   const neto = bruto - totalDesc;
+  const customAmount = parseFloat(document.getElementById('pago-custom-amount')?.value) || null;
+  const finalAmount = customAmount !== null ? customAmount : neto;
 
   let h = '';
   h += `<div class="calc-row"><span class="label">Subtotal bruto</span><span class="value">$${fmt(bruto)}</span></div>`;
   if (totalDesc > 0) {
     h += `<div class="calc-row"><span class="label" style="color:var(--red)">Descuentos</span><span class="value" style="color:var(--red)">-$${fmt(totalDesc)}</span></div>`;
   }
-  h += `<div class="calc-row total"><span class="label">TOTAL A PAGAR</span><span class="value" style="color:${neto >= 0 ? 'var(--green)' : 'var(--red)'}">$${fmt(neto)}</span></div>`;
+
+  // Input field for custom amount
+  h += `<div class="calc-row" style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
+    <div style="width:100%">
+      <label style="font-size:.85rem;color:var(--gray);display:block;margin-bottom:6px">💰 Monto a pagar (editable)</label>
+      <input type="number" id="pago-custom-amount" value="${customAmount !== null ? customAmount : neto}" placeholder="${neto}"
+        style="width:100%;padding:10px;border:2px solid var(--border);border-radius:var(--radius);font-size:1rem;font-weight:700"
+        oninput="renderPagoTotal()" min="0">
+    </div>
+  </div>`;
+
+  h += `<div class="calc-row total"><span class="label">TOTAL FINAL</span><span class="value" style="color:${finalAmount >= 0 ? 'var(--green)' : 'var(--red)'}">$${fmt(finalAmount)}</span></div>`;
   c.innerHTML = h;
 }
 
@@ -1312,13 +1379,22 @@ function getBrutoActual() {
   let totalBase = 0;
   let totalGoles = 0;
   let totalValla = 0;
+  let hasNCPayment = false;
 
   registeredPartidos.forEach(pt => {
     const chk = document.getElementById('pago-check-' + pt.id);
     if (!chk || !chk.checked) return;
     const records = cachedRegistro[pt.id] || [];
     const playerRec = records.find(r => r.jugador.toUpperCase() === pName);
-    if (!playerRec || playerRec.estado === 'N/C') return;
+    if (!playerRec) return;
+
+    // Allow NC payments (special agreements)
+    if (playerRec.estado === 'N/C') {
+      hasNCPayment = true;
+      // For NC: user will set a custom amount
+      return;
+    }
+
     selectedPartidos.push(playerRec);
 
     if (p.tipoContratacion === 'Por partido') {
@@ -1349,19 +1425,40 @@ function backToPagosList() {
 
 async function savePago() {
   if (!currentPagoPlayer) return;
-  const bruto = getBrutoActual();
-  const totalDesc = currentPagoDiscounts.reduce((s, d) => s + (d.monto || 0), 0);
-  const neto = bruto - totalDesc;
 
-  if (bruto === 0) { toast('No hay monto a pagar', 'error'); return; }
-
-  // Build list of selected partidos
+  // Build list of selected partidos and check for already paid
   const registeredPartidos = partidos.filter(pt => registeredIds.has(pt.id));
   const selectedNames = [];
+  const alreadyPaidPartidos = [];
+
   registeredPartidos.forEach(pt => {
     const chk = document.getElementById('pago-check-' + pt.id);
-    if (chk && chk.checked) selectedNames.push('vs ' + pt.rival);
+    if (chk && chk.checked) {
+      selectedNames.push('vs ' + pt.rival);
+      // Check if this partido was already paid
+      if (chk.dataset.alreadyPaid === 'true') {
+        alreadyPaidPartidos.push(pt.rival);
+      }
+    }
   });
+
+  // If there are already paid partidos, show warning
+  if (alreadyPaidPartidos.length > 0) {
+    const msg = `⚠️ ADVERTENCIA: ${alreadyPaidPartidos.length} partido${alreadyPaidPartidos.length > 1 ? 's' : ''} ya ${alreadyPaidPartidos.length > 1 ? 'fueron pagados' : 'fue pagado'}:\n${alreadyPaidPartidos.map(r => '• ' + r).join('\n')}\n\n¿Estás seguro de que querés proceder?`;
+    if (!confirm(msg)) {
+      return;
+    }
+  }
+
+  const bruto = getBrutoActual();
+  const totalDesc = currentPagoDiscounts.reduce((s, d) => s + (d.monto || 0), 0);
+
+  // Check if user provided a custom amount
+  const customAmount = parseFloat(document.getElementById('pago-custom-amount')?.value);
+  const finalBruto = !isNaN(customAmount) && customAmount > 0 ? customAmount : bruto;
+  const neto = finalBruto - totalDesc;
+
+  if (finalBruto === 0) { toast('Ingresá un monto a pagar', 'error'); return; }
 
   const descJson = currentPagoDiscounts.filter(d => d.monto > 0).map(d => d.desc + ': $' + d.monto).join('; ');
 
@@ -1369,7 +1466,7 @@ async function savePago() {
     timestamp: new Date().toISOString(),
     jugador: currentPagoPlayer.nombre,
     partidos: selectedNames.join(', '),
-    montoBruto: bruto,
+    montoBruto: finalBruto,
     descuentos: descJson,
     montoNeto: neto
   };

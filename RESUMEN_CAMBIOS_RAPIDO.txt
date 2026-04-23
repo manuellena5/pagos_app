@@ -1,0 +1,186 @@
+═══════════════════════════════════════════════════════════════════════════════
+                    RESUMEN DE CAMBIOS - DETALLE DE PAGOS
+═══════════════════════════════════════════════════════════════════════════════
+
+ARCHIVO MODIFICADO: pagos_app.html (en tu carpeta Git)
+
+═══════════════════════════════════════════════════════════════════════════════
+                              FUNCIONALIDADES NUEVAS
+═══════════════════════════════════════════════════════════════════════════════
+
+1️⃣ VERIFICACIÓN DE PAGOS HISTÓRICOS
+   ✅ Consulta automáticamente si un partido ya fue pagado
+   ✅ Marca con badge verde "✓ Pagado" los partidos abonados
+   ✅ Muestra fondo verde en partidos pagados para identificarlos fácilmente
+
+2️⃣ ADVERTENCIA ANTES DE REPAGAR
+   ✅ Si seleccionas un partido ya pagado, muestra confirmación
+   ✅ Lista qué partidos ya fueron pagados
+   ✅ Requiere confirmación explícita (evita errores accidentales)
+
+3️⃣ PERMITIR PAGOS A NO CONVOCADOS (N/C)
+   ✅ Los jugadores N/C ahora pueden ser pagados
+   ✅ Muestra badge rojo "No convocado" para identificarlos
+   ✅ El checkbox NO está deshabilitado (puedes seleccionarlo)
+   ✅ Perfecto para arreglos especiales con jugadores
+
+4️⃣ MONTO EDITABLE SIN LÍMITES
+   ✅ Campo "💰 Monto a pagar (editable)" en la sección Total
+   ✅ Puedes cambiar el monto que fue calculado automáticamente
+   ✅ Si dejas vacío, usa el cálculo automático
+   ✅ Permite cualquier valor (sin restricciones)
+
+═══════════════════════════════════════════════════════════════════════════════
+                              CÓMO FUNCIONA
+═══════════════════════════════════════════════════════════════════════════════
+
+FLUJO PARA JUGADOR NORMAL (Convocado):
+1. Abres detalle del jugador
+2. Ves todos los partidos registrados
+3. Los partidos ya pagados muestran: "vs Rival ✓ Pagado" [fondo verde]
+4. Seleccionas los partidos a pagar
+5. Sistema calcula automáticamente (según estado: T, S, S c/min)
+6. OPCIONALMENTE: Editas el monto en "💰 Monto a pagar (editable)"
+7. Si seleccionaste partidos ya pagados → aparece advertencia
+8. Confirmas y se registra el pago
+
+FLUJO PARA JUGADOR NO CONVOCADO (Arreglo Especial):
+1. Abres detalle del jugador
+2. Los partidos muestran: "vs Rival No convocado" [badge rojo]
+3. Checkbox está HABILITADO (puedes seleccionar)
+4. Seleccionas el/los partido(s)
+5. Sistema NO calcula monto automático (= $0)
+6. OBLIGATORIO: Ingresas el monto en "💰 Monto a pagar (editable)"
+7. Confirmas y se registra el pago
+
+═══════════════════════════════════════════════════════════════════════════════
+                           CAMBIOS VISUALES
+═══════════════════════════════════════════════════════════════════════════════
+
+ANTES (Partidos ya pagados):
+┌─────────────────────────────────────────────────────────┐
+│ vs Real Madrid                    T                  $500│
+│ vs Boca                           T                  $500│
+└─────────────────────────────────────────────────────────┘
+❌ No se podía distinguir cuáles fueron pagados
+❌ No había advertencia al repagar
+
+DESPUÉS (Partidos ya pagados):
+┌─────────────────────────────────────────────────────────┐
+│ vs Real Madrid ✓ Pagado           T                  $500│  ← Fondo verde
+│ vs Boca                           T                  $500│
+└─────────────────────────────────────────────────────────┘
+✅ Badge "✓ Pagado" indica claramente cuál fue abonado
+✅ Fondo verde para visibilidad
+✅ Advertencia si intentas repagar
+
+ANTES (Jugadores No Convocados):
+┌─────────────────────────────────────────────────────────┐
+│ ☐ [deshabilitado] vs Real Madrid  N/C                 - │
+└─────────────────────────────────────────────────────────┘
+❌ Checkbox grisado/deshabilitado
+❌ No se podía pagar jugadores con arreglos especiales
+
+DESPUÉS (Jugadores No Convocados):
+┌─────────────────────────────────────────────────────────┐
+│ ☑ vs Real Madrid No convocado     N/C                 - │  ← Badge rojo
+└─────────────────────────────────────────────────────────┘
+✅ Checkbox HABILITADO
+✅ Badge rojo "No convocado" para identificar
+✅ Puedes seleccionar y pagar con monto personalizado
+
+═══════════════════════════════════════════════════════════════════════════════
+                         CAMPOS NUEVOS EN TOTAL
+═══════════════════════════════════════════════════════════════════════════════
+
+ANTES:
+┌──────────────────────────────┐
+│ Subtotal bruto    $500       │
+│ Descuentos        -$50       │
+│ TOTAL A PAGAR     $450       │
+└──────────────────────────────┘
+
+DESPUÉS:
+┌──────────────────────────────┐
+│ Subtotal bruto    $500       │
+│ Descuentos        -$50       │
+│                              │
+│ 💰 Monto a pagar             │
+│ [_____550_______] ← EDITABLE │
+│                              │
+│ TOTAL FINAL       $500       │
+└──────────────────────────────┘
+
+═══════════════════════════════════════════════════════════════════════════════
+                            CASOS DE USO
+═══════════════════════════════════════════════════════════════════════════════
+
+📌 CASO 1: Verificar si un jugador fue pagado
+   → Abre el detalle y busca "✓ Pagado" en verde
+
+📌 CASO 2: Pagar a un jugador que ya fue pagado (corrección)
+   → Selecciona el partido, aparece advertencia, confirmas y continúas
+
+📌 CASO 3: Pagar a jugador no convocado (préstamo, arreglo)
+   → Selecciona el partido N/C, ingresa monto manual, guarda
+
+📌 CASO 4: Ajustar un monto calculado
+   → Deja que calcule automáticamente, luego edita en "💰 Monto a pagar"
+   → Ej: cálculo = $500, cambias a $550 para bonus especial
+
+📌 CASO 5: Pagar múltiples partidos con monto flat
+   → Selecciona varios partidos, calcul automático suma, edita si necesitas
+
+═══════════════════════════════════════════════════════════════════════════════
+                          DATOS TÉCNICOS
+═══════════════════════════════════════════════════════════════════════════════
+
+📊 Fuente de datos de pagos previos:
+   → Hoja Google Sheets: "Historial_Pagos"
+   → Variable JS: allPagos (se carga al iniciar)
+   → Storage local: localStorage.getItem('pagos_historial')
+
+📊 Cómo se guarda un pago:
+   → Se envía a Google Sheets (tabla Historial_Pagos)
+   → Se actualiza allPagos en memoria
+   → Se usa para futuras verificaciones
+
+═══════════════════════════════════════════════════════════════════════════════
+                         VALIDACIONES
+═══════════════════════════════════════════════════════════════════════════════
+
+✓ No puedes guardar sin monto (mostrará error)
+✓ Si hay partidos ya pagados, pide confirmación
+✓ Las bonificaciones (goles, valla) NO aplican a jugadores N/C
+✓ Descuentos aplican sobre monto final (personalizado o automático)
+
+═══════════════════════════════════════════════════════════════════════════════
+                           TESTING RÁPIDO
+═══════════════════════════════════════════════════════════════════════════════
+
+Prueba 1: Abre un jugador que ya fue pagado antes
+   → Debes ver "✓ Pagado" en verde en algún partido
+
+Prueba 2: Intenta pagar el mismo partido dos veces
+   → Debe salir confirmación pidiendo que confirmes
+
+Prueba 3: Abre un jugador no convocado
+   → Debes ver badge rojo "No convocado"
+   → Checkbox debe estar HABILITADO
+   → Si seleccionas, el monto será 0 hasta que edites
+
+Prueba 4: Edita un monto
+   → Calcula $500, cambia a $600 en el input
+   → "TOTAL FINAL" debe mostrar $600
+
+═══════════════════════════════════════════════════════════════════════════════
+                              ¡LISTO!
+═══════════════════════════════════════════════════════════════════════════════
+
+El archivo pagos_app.html ya está actualizado en:
+C:\Users\manuel.ellena\Git\pagos_app\pagos_app.html
+
+Todos los cambios están listos para usar. No requiere configuración adicional.
+
+Si necesitas más detalles, ver el archivo CAMBIOS_DETALLE_PAGOS.md
+═══════════════════════════════════════════════════════════════════════════════
