@@ -269,6 +269,11 @@ body{display:flex;flex-direction:column;padding-bottom:68px}
 }
 #comprobante-view .cv-firma{text-align:center;padding:0 6px}
 #comprobante-view .cv-firma + .cv-firma{border-left:1px solid #d4d0c8}
+#comprobante-view .cv-firma-img{
+  height:42px;margin:0 auto 2px;
+  display:flex;align-items:flex-end;justify-content:center;
+}
+#comprobante-view .cv-firma-img img{max-height:42px;max-width:100%;object-fit:contain}
 #comprobante-view .cv-firma-linea{height:1px;background:#1a1a1a;margin:0 6px 5px}
 #comprobante-view .cv-firma-nombre{font-size:11px;font-weight:500}
 #comprobante-view .cv-firma-cargo{font-size:10px;color:#6b6560;margin-top:1px}
@@ -397,7 +402,7 @@ body{display:flex;flex-direction:column;padding-bottom:68px}
     <div id="comprobante-view">
       <div class="cv-header">
         <div class="cv-logo">
-          <img src="icon.svg" alt="Logo">
+          <img src="escudo.jpg" alt="Escudo Club Deportivo Mitre">
         </div>
         <div>
           <div class="cv-club-name">Club Deportivo Mitre</div>
@@ -405,7 +410,6 @@ body{display:flex;flex-direction:column;padding-bottom:68px}
           <div class="cv-doc-type">Comprobante de pago</div>
         </div>
         <div class="cv-meta">
-          <div class="cv-numero" id="cv-numero">N° ——</div>
           <div class="cv-fecha" id="cv-fecha-hdr">—</div>
         </div>
       </div>
@@ -426,16 +430,19 @@ body{display:flex;flex-direction:column;padding-bottom:68px}
       </div>
       <div class="cv-firmas">
         <div class="cv-firma">
+          <div class="cv-firma-img"><img src="firma1.jpg" alt=""></div>
           <div class="cv-firma-linea"></div>
           <div class="cv-firma-nombre">Laureano Gagliardo</div>
           <div class="cv-firma-cargo">Presidente</div>
         </div>
         <div class="cv-firma">
+          <div class="cv-firma-img"><img src="firma2.jpg" alt=""></div>
           <div class="cv-firma-linea"></div>
           <div class="cv-firma-nombre">Raul Tini</div>
           <div class="cv-firma-cargo">Tesorero</div>
         </div>
         <div class="cv-firma">
+          <div class="cv-firma-img"><img src="firma3.jpg" alt=""></div>
           <div class="cv-firma-linea"></div>
           <div class="cv-firma-nombre">Manuel Ellena</div>
           <div class="cv-firma-cargo">Secretario</div>
@@ -472,6 +479,7 @@ let scriptUrl = localStorage.getItem('pagos_script_url') || '';
 let allRegistro = []; // all registration data (fetched)
 let cachedRegistro = {}; // {partidoId: records[]}
 let registeredIds = new Set(); // partido IDs with data
+let allPagos = JSON.parse(localStorage.getItem('pagos_historial') || 'null') || []; // payment history
 
 // Current pago state
 let currentPagoPlayer = null;
@@ -517,6 +525,16 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
         // Build registered IDs
         allRegistro.forEach(r => registeredIds.add(r.partidoId));
+      }
+    } catch (e) {}
+
+    try {
+      // Load payment history
+      const rh = await fetch(scriptUrl + '?action=getPagos');
+      const jh = await rh.json();
+      if (jh.status === 'success' && jh.data) {
+        allPagos = jh.data;
+        localStorage.setItem('pagos_historial', JSON.stringify(allPagos));
       }
     } catch (e) {}
 
@@ -1376,6 +1394,17 @@ async function savePago() {
       localStorage.setItem('pagos_players', JSON.stringify(players));
     }
 
+    // Append to local pagos history so Resumen reflects it right away
+    allPagos.push({
+      timestamp: record.timestamp,
+      jugador: record.jugador,
+      partidos: record.partidos,
+      montoBruto: record.montoBruto,
+      descuentos: record.descuentos,
+      montoNeto: record.montoNeto
+    });
+    localStorage.setItem('pagos_historial', JSON.stringify(allPagos));
+
     toast('✓ Pago registrado — ' + currentPagoPlayer.nombre, 'success');
     showComprobante(compData);
     backToPagosList();
@@ -1435,18 +1464,12 @@ function buildComprobanteData(record, selectedNames) {
     periodo = mes.charAt(0).toUpperCase() + mes.slice(1);
   }
 
-  // Número de comprobante: correlativo local simple basado en fecha
-  const numeroStored = parseInt(localStorage.getItem('pagos_comp_num') || '0', 10) + 1;
-  localStorage.setItem('pagos_comp_num', numeroStored.toString());
-  const numero = String(numeroStored).padStart(4, '0');
-
   // Fecha header: mes y año
   const d = new Date(record.timestamp);
   const mesAnio = d.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' });
   const mesAnioCap = mesAnio.charAt(0).toUpperCase() + mesAnio.slice(1);
 
   return {
-    numero: numero,
     jugador: record.jugador,
     fechaHeader: mesAnioCap,
     fechaEmision: formatDate(record.timestamp.split('T')[0]),
@@ -1458,7 +1481,6 @@ function buildComprobanteData(record, selectedNames) {
 
 function showComprobante(data) {
   lastComprobante = data;
-  document.getElementById('cv-numero').textContent = 'N° ' + data.numero;
   document.getElementById('cv-fecha-hdr').textContent = data.fechaHeader;
   document.getElementById('cv-nombre').textContent = (data.jugador || '').toUpperCase();
   document.getElementById('cv-total').textContent = '$' + fmt(data.total);
@@ -1506,7 +1528,7 @@ async function shareComprobante() {
     .map(i => '• ' + i.label + (i.value ? ' — ' + i.value : ''))
     .join('\n');
   const txt =
-    `*Club Deportivo Mitre — Comprobante N° ${d.numero}*\n` +
+    `*Club Deportivo Mitre — Comprobante de pago*\n` +
     `Receptor: *${d.jugador}*\n` +
     (d.periodo ? `Período: ${d.periodo}\n` : '') +
     `\n${descLines}\n` +
@@ -1539,7 +1561,8 @@ async function downloadComprobantePNG() {
     const node = document.getElementById('comprobante-view');
     const canvas = await html2canvas(node, { backgroundColor: '#ffffff', scale: 2, useCORS: true });
     const link = document.createElement('a');
-    link.download = 'comprobante-' + (lastComprobante?.numero || '0000') + '.png';
+    const jugadorSlug = (lastComprobante?.jugador || 'pago').replace(/\s+/g, '_');
+    link.download = 'comprobante-' + jugadorSlug + '.png';
     link.href = canvas.toDataURL('image/png');
     link.click();
   } catch (e) {
@@ -1572,6 +1595,28 @@ function renderResumenPartidos() {
   });
 }
 
+// Given a list of selected partido IDs, returns which rivals the player has
+// already been paid for (looking at Historial_Pagos "partidos" strings).
+function getPartidosYaPagadosParaJugador(jugadorNombre, selectedIds) {
+  const yaPagados = new Set();
+  const selectedRivals = selectedIds.map(id => {
+    const pt = partidos.find(p => p.id === id);
+    return pt ? pt.rival : null;
+  }).filter(Boolean);
+  const nombreUp = (jugadorNombre || '').toUpperCase();
+  allPagos.forEach(p => {
+    if ((p.jugador || '').toUpperCase() !== nombreUp) return;
+    const str = (p.partidos || '').toLowerCase();
+    selectedRivals.forEach(r => {
+      // match "vs <rival>" or just the rival name inside the stored string
+      if (str.includes(('vs ' + r).toLowerCase()) || str.includes(r.toLowerCase())) {
+        yaPagados.add(r);
+      }
+    });
+  });
+  return yaPagados;
+}
+
 function calcResumen() {
   const out = document.getElementById('resumen-output');
   const registeredPartidos = partidos.filter(p => registeredIds.has(p.id));
@@ -1591,6 +1636,7 @@ function calcResumen() {
   // Calculate for each player
   let grandTotal = 0;
   const rows = [];
+  const paidRows = [];
 
   players.forEach(p => {
     const pName = p.nombre.toUpperCase();
@@ -1602,7 +1648,16 @@ function calcResumen() {
     let vallaCount = 0;
     const detalles = [];
 
-    selectedIds.forEach(pid => {
+    // Detect which selected partidos this player has ALREADY been paid for
+    const yaPagadosRivals = getPartidosYaPagadosParaJugador(p.nombre, selectedIds);
+
+    // Build list of partido IDs to use for this calc, excluding already paid ones
+    const pendingIds = selectedIds.filter(pid => {
+      const pt = partidos.find(x => x.id === pid);
+      return pt && !yaPagadosRivals.has(pt.rival);
+    });
+
+    pendingIds.forEach(pid => {
       const records = cachedRegistro[pid] || [];
       const playerRec = records.find(r => r.jugador.toUpperCase() === pName);
       if (!playerRec || playerRec.estado === 'N/C') return;
@@ -1639,7 +1694,28 @@ function calcResumen() {
     }
 
     const total = totalBase + totalGoles + totalValla;
-    if (total > 0 || partidosJugados > 0) {
+
+    // How many of the selected partidos did this player actually play at all
+    // (regardless of already-paid state) — used to decide whether to skip
+    // showing them entirely vs showing them as "already paid".
+    let totalJugadosEnSeleccion = 0;
+    selectedIds.forEach(pid => {
+      const recs = cachedRegistro[pid] || [];
+      const rec = recs.find(r => r.jugador.toUpperCase() === pName);
+      if (rec && rec.estado !== 'N/C') totalJugadosEnSeleccion++;
+    });
+
+    const fullyPaid = yaPagadosRivals.size > 0 && pendingIds.length < selectedIds.length && partidosJugados === 0 && totalJugadosEnSeleccion > 0;
+
+    if (fullyPaid) {
+      // Player already paid for ALL selected partidos they played → show in "paid" section
+      paidRows.push({
+        nombre: p.nombre,
+        tipo: p.tipoContratacion,
+        pagadosCount: yaPagadosRivals.size,
+        rivalsPagados: Array.from(yaPagadosRivals)
+      });
+    } else if (total > 0 || partidosJugados > 0) {
       grandTotal += total;
       rows.push({
         nombre: p.nombre,
@@ -1651,32 +1727,57 @@ function calcResumen() {
         valla: totalValla,
         vallaCount,
         total,
-        detalles
+        detalles,
+        partialPaid: yaPagadosRivals.size > 0,
+        rivalsPagados: Array.from(yaPagadosRivals)
       });
     }
   });
 
-  // Render table
-  let h = '<div class="card"><div class="card-hdr">Detalle por jugador</div><div style="overflow-x:auto"><table class="resumen-table"><thead><tr>';
+  // Render table — pendientes
+  let h = '<div class="card"><div class="card-hdr">Pendientes de pago</div><div style="overflow-x:auto"><table class="resumen-table"><thead><tr>';
   h += '<th>Jugador</th><th>Tipo</th><th>PJ</th><th style="text-align:right">Base</th><th style="text-align:right">Goles</th><th style="text-align:right">Valla</th><th style="text-align:right">Total</th>';
   h += '</tr></thead><tbody>';
 
   rows.sort((a, b) => b.total - a.total);
-  rows.forEach(r => {
-    h += `<tr>
-      <td class="rt-name">${r.nombre}</td>
-      <td><span class="badge ${{'Por partido':'badge-green','Quincena':'badge-blue','Mensual':'badge-purple','N/A':'badge-yellow'}[r.tipo] || 'badge-yellow'}">${r.tipo}</span></td>
-      <td>${r.partidos}</td>
-      <td class="rt-amount">$${fmt(r.base)}</td>
-      <td class="rt-amount">${r.golesCount > 0 ? '$' + fmt(r.goles) : '-'}</td>
-      <td class="rt-amount">${r.vallaCount > 0 ? '$' + fmt(r.valla) : '-'}</td>
-      <td class="rt-amount" style="color:var(--green-text)">$${fmt(r.total)}</td>
-    </tr>`;
-  });
-
+  if (rows.length === 0) {
+    h += '<tr><td colspan="7" style="padding:16px;text-align:center;color:var(--gray)">Ningún jugador pendiente para esta selección</td></tr>';
+  } else {
+    rows.forEach(r => {
+      const partialMark = r.partialPaid
+        ? ` <span title="Ya cobró ${r.rivalsPagados.join(', ')}" style="font-size:.7rem;color:var(--blue-text);background:var(--blue-bg);padding:1px 6px;border-radius:10px;margin-left:4px">parcial</span>`
+        : '';
+      h += `<tr>
+        <td class="rt-name">${r.nombre}${partialMark}</td>
+        <td><span class="badge ${{'Por partido':'badge-green','Quincena':'badge-blue','Mensual':'badge-purple','N/A':'badge-yellow'}[r.tipo] || 'badge-yellow'}">${r.tipo}</span></td>
+        <td>${r.partidos}</td>
+        <td class="rt-amount">$${fmt(r.base)}</td>
+        <td class="rt-amount">${r.golesCount > 0 ? '$' + fmt(r.goles) : '-'}</td>
+        <td class="rt-amount">${r.vallaCount > 0 ? '$' + fmt(r.valla) : '-'}</td>
+        <td class="rt-amount" style="color:var(--green-text)">$${fmt(r.total)}</td>
+      </tr>`;
+    });
+  }
   h += '</tbody></table></div></div>';
 
   h += `<div class="resumen-total">TOTAL A PAGAR: $${fmt(grandTotal)}</div>`;
+
+  // Jugadores ya pagados
+  if (paidRows.length > 0) {
+    paidRows.sort((a, b) => a.nombre.localeCompare(b.nombre));
+    h += '<div class="card" style="margin-top:14px;opacity:.85"><div class="card-hdr" style="background:var(--gray-light);color:var(--gray)">✓ Ya cobraron estos partidos (' + paidRows.length + ')</div>';
+    h += '<div style="padding:8px 6px">';
+    paidRows.forEach(r => {
+      h += `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border-bottom:1px solid var(--gray-light)">
+        <div>
+          <div style="font-weight:600;font-size:.9rem;color:var(--gray)">${r.nombre}</div>
+          <div style="font-size:.72rem;color:var(--gray);margin-top:2px">vs ${r.rivalsPagados.join(', vs ')}</div>
+        </div>
+        <span class="badge badge-green" style="background:var(--green-bg);color:var(--green-text)">✓ Pagado</span>
+      </div>`;
+    });
+    h += '</div></div>';
+  }
 
   // Summary cards
   const partidosNames = selectedIds.map(id => {
@@ -1686,10 +1787,11 @@ function calcResumen() {
 
   h = `<div class="card" style="margin-bottom:12px"><div class="card-hdr">Partidos seleccionados</div>
     <div style="padding:10px 14px;font-size:.85rem;color:var(--gray)">${partidosNames}</div>
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:12px">
-      <div style="text-align:center;padding:10px;background:var(--gray-light);border-radius:8px"><div style="font-size:1.6rem;font-weight:800">${selectedIds.length}</div><div style="font-size:.7rem;color:var(--gray)">Partidos</div></div>
-      <div style="text-align:center;padding:10px;background:var(--gray-light);border-radius:8px"><div style="font-size:1.6rem;font-weight:800">${rows.length}</div><div style="font-size:.7rem;color:var(--gray)">Jugadores</div></div>
-      <div style="text-align:center;padding:10px;background:var(--gray-light);border-radius:8px"><div style="font-size:1.6rem;font-weight:800;color:var(--green)">$${fmt(grandTotal)}</div><div style="font-size:.7rem;color:var(--gray)">Total</div></div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;padding:12px">
+      <div style="text-align:center;padding:10px 4px;background:var(--gray-light);border-radius:8px"><div style="font-size:1.4rem;font-weight:800">${selectedIds.length}</div><div style="font-size:.65rem;color:var(--gray)">Partidos</div></div>
+      <div style="text-align:center;padding:10px 4px;background:var(--gray-light);border-radius:8px"><div style="font-size:1.4rem;font-weight:800">${rows.length}</div><div style="font-size:.65rem;color:var(--gray)">Pendientes</div></div>
+      <div style="text-align:center;padding:10px 4px;background:var(--green-bg);border-radius:8px"><div style="font-size:1.4rem;font-weight:800;color:var(--green-text)">${paidRows.length}</div><div style="font-size:.65rem;color:var(--green-text)">Pagados</div></div>
+      <div style="text-align:center;padding:10px 4px;background:var(--gray-light);border-radius:8px"><div style="font-size:1.2rem;font-weight:800;color:var(--green)">$${fmt(grandTotal)}</div><div style="font-size:.65rem;color:var(--gray)">A pagar</div></div>
     </div>
   </div>` + h;
 

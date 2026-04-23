@@ -1,8 +1,12 @@
-const CACHE_NAME = 'pagos-v4';
+const CACHE_NAME = 'pagos-v6';
 const CACHED_URLS = [
   './pagos_app.html',
   './manifest.json',
-  './icon.svg'
+  './icon.svg',
+  './escudo.jpg',
+  './firma1.jpg',
+  './firma2.jpg',
+  './firma3.jpg'
 ];
 
 self.addEventListener('install', (event) => {
