@@ -1,7 +1,7 @@
 // Google Apps Script for Pagos App
 // Deploy this as a web app (Execute as: your account, Who has access: Anyone)
 
-const SHEET_ID = 'TU_SHEET_ID_AQUI'; // Reemplazar con el ID de tu Google Sheet
+const SHEET_ID = '1utDeHhXEOPm94GNPV72WKJ8RbCo_aS5tpKKgaV4dlbw'; // Reemplazar con el ID de tu Google Sheet
 const JUGADORES_SHEET = 'Jugadores_Pagos';
 const PARTIDOS_SHEET = 'Partidos_Pagos';
 const REGISTRO_SHEET = 'Registro_Pagos';
@@ -76,6 +76,25 @@ function doPost(e) {
  *          Monto_Suplente_Min | Monto_Quincena | Monto_Mensual | Fecha_Cobro |
  *          Monto_Gol | Monto_Valla
  */
+
+/**
+ * Normalize tipoContratacion to a canonical form so the frontend
+ * can use exact string comparisons regardless of how the user typed
+ * the value in the sheet (e.g. "por_partido", "Por Partido", "POR PARTIDO").
+ * Canonical values: "Por partido", "Quincena", "Mensual", "N/A".
+ */
+function normalizeTipoContratacion(raw) {
+  if (raw === undefined || raw === null || raw === '') return 'N/A';
+  // lowercase, replace underscores and multiple spaces, trim
+  const s = raw.toString().toLowerCase().replace(/_/g, ' ').replace(/\s+/g, ' ').trim();
+  if (s === 'por partido' || s === 'porpartido' || s === 'partido' || s === 'por-partido') return 'Por partido';
+  if (s === 'quincena' || s === 'quincenal') return 'Quincena';
+  if (s === 'mensual' || s === 'mes' || s === 'mensualmente') return 'Mensual';
+  if (s === 'n/a' || s === 'na' || s === 'ninguno' || s === 'sin contrato') return 'N/A';
+  // Fallback: return the original trimmed value so it at least surfaces visibly
+  return raw.toString().trim();
+}
+
 function getPlayersData() {
   try {
     const spreadsheet = SpreadsheetApp.openById(SHEET_ID);
@@ -108,7 +127,7 @@ function getPlayersData() {
       players.push({
         nombre: nombre,
         posicion: (values[i][1] || 'Jugador').toString().trim(),
-        tipoContratacion: (values[i][2] || 'N/A').toString().trim(),
+        tipoContratacion: normalizeTipoContratacion(values[i][2]),
         montoTitular: parseFloat(values[i][3]) || 0,
         montoSuplente: parseFloat(values[i][4]) || 0,
         montoSuplenteMin: parseFloat(values[i][5]) || 0,
